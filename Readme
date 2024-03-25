@@ -1,0 +1,19 @@
+`@Todo`: Feature Support
+
+- Command Execution (Support for all linux commands using `execvp`)
+
+- Support for builit in commands such as (`cd`, `exit`, `help`)
+
+- Command history cycling
+
+- Command autocompletion and suggestions (`possibly with AI` or any other solution)
+
+- Scripting support
+
+- Support for `piping` (|) and `redirecting` (<>) processes
+
+- Support for `envs`
+
+- Prompt customization with `rc` files
+
+- Signal Handling (`SIGINT` and `SIGTERM`)
