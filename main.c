@@ -57,9 +57,52 @@ int main(int argc, char const *argv[])
     } while (1);
 }
 
+// void print_prompt(app_t *app)
+// {
+
+//     getcwd(app->current_directory, app->current_directory_length);
+
+//     FILE *fp = popen("git rev-parse --abbrev-ref HEAD 2>/dev/null", "r");
+//     char git_branch[1024] = "";
+
+//     if (fp != NULL)
+//     {
+//         fgets(git_branch, sizeof(git_branch), fp);
+//         git_branch[strcspn(git_branch, "\n")] = 0; // remove trailing newline
+//         pclose(fp);
+//     }
+
+//     if (app->has_init == false)
+//     {
+//         printf("DSH version 1.0 \n");
+//         if (strlen(git_branch) > 0)
+//         {
+//             printf("\033[38;2;6;152;154m%s\033[0m ", basename(app->current_directory));
+//             printf("\033[38;2;52;101;164mgit:(\033[0m\033[38;2;204;0;0m%s\033[0m\033[38;2;52;101;164m) \033[0m\033[38;2;196;160;0m>\033[0m ", git_branch);
+//         }
+//         else
+//         {
+//             printf("\033[38;2;6;152;154m%s >\033[0m ", basename(app->current_directory));
+//         }
+
+//         app->has_init = true;
+//     }
+//     else
+//     {
+//         if (strlen(git_branch) > 0)
+//         {
+//             printf("\032[38;2;6;152;154m%s >\033[0m ", basename(app->current_directory));
+//             printf("\033[38;2;52;101;164mgit:(\033[0m\033[38;2;204;0;0m%s\033[0m\033[38;2;52;101;164m) \033[0m\033[38;2;196;160;0m\033[0m ", git_branch);
+//         }
+//         else
+//         {
+//             printf("\033[38;2;6;152;154m%s >\033[0m ", basename(app->current_directory));
+//         }
+//     }
+// }
+
 void print_prompt(app_t *app)
 {
-
     getcwd(app->current_directory, app->current_directory_length);
 
     FILE *fp = popen("git rev-parse --abbrev-ref HEAD 2>/dev/null", "r");
@@ -75,29 +118,16 @@ void print_prompt(app_t *app)
     if (app->has_init == false)
     {
         printf("DSH version 1.0 \n");
-        if (strlen(git_branch) > 0)
-        {
-            printf("\033[38;2;6;152;154m%s\033[0m ", basename(app->current_directory));
-            printf("\033[38;2;52;101;164mgit:(\033[0m\033[38;2;204;0;0m%s\033[0m\033[38;2;52;101;164m) \033[0m\033[38;2;196;160;0m>\033[0m ", git_branch);
-        }
-        else
-        {
-            printf("\033[38;2;6;152;154m%s >\033[0m ", basename(app->current_directory));
-        }
-
         app->has_init = true;
+    }
+
+    if (strlen(git_branch) > 0)
+    {
+        printf("%s (git:%s) > ", basename(app->current_directory), git_branch);
     }
     else
     {
-        if (strlen(git_branch) > 0)
-        {
-            printf("\032[38;2;6;152;154m%s >\033[0m ", basename(app->current_directory));
-            printf("\033[38;2;52;101;164mgit:(\033[0m\033[38;2;204;0;0m%s\033[0m\033[38;2;52;101;164m) \033[0m\033[38;2;196;160;0m\033[0m ", git_branch);
-        }
-        else
-        {
-            printf("\033[38;2;6;152;154m%s >\033[0m ", basename(app->current_directory));
-        }
+        printf("%s > ", basename(app->current_directory));
     }
 }
 
