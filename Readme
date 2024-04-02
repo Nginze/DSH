@@ -4,6 +4,8 @@
 
 - Support for builit in commands such as (`cd`, `exit`, `help`)
 
+- Write a parser (parsing algorithm for cmd input)
+
 - Command history cycling
 
 - Command autocompletion and suggestions (`possibly with AI` or any other solution)

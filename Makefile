@@ -1,10 +1,13 @@
 CC=gcc
 CFLAGS=-I.
 
-all: main
+all:	main
 
-main: main.c
-	$(CC) -o main main.c $(CFLAGS)
+main:	main.c	utils.o
+	$(CC) -o main main.c utils.o $(CFLAGS)
+
+utils.o:	utils.c	utils.h
+	$(CC) -c utils.c $(CFLAGS)
 
 clean: 
-	rm -f main
+	$(CC) -f main utils.o
