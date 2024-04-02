@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <libgen.h>
+#include <fcntl.h>
 #include <string.h>
 #include "utils.h"
 
@@ -85,7 +86,7 @@ int main(int argc, char const *argv[])
         read_input(app);
         tokenize(app->app_buffer->buffer, &app->app_buffer->token_list);
         parse_tokens(app);
-        print_commands(app->app_buffer->command_list[0]);
+        exec_handler(app);
 
     } while (1);
 }
@@ -144,42 +145,34 @@ void parse_tokens(app_t *app)
 
         if (strcmp(token_list->value, "|") == 0)
         {
-            // get_args(token_list, &args, &args_length);
             last_command->next = app->app_buffer->command_list[i] = new_command(PIPE, args, args_length);
         }
         else if (strcmp(token_list->value, "<") == 0)
         {
-            // get_args(token_list, &args, &args_length);
             last_command->next = app->app_buffer->command_list[i] = new_command(REDIRECT_IN, args, args_length);
         }
         else if (strcmp(token_list->value, ">") == 0)
         {
-            // get_args(token_list, &args, &args_length);
             last_command->next = app->app_buffer->command_list[i] = new_command(REDIRECT_OUT, args, args_length);
         }
         else if (strcmp(token_list->value, "2>") == 0)
         {
-            // get_args(token_list, &args, &args_length);
             last_command->next = app->app_buffer->command_list[i] = new_command(REDIRECT_ERR, args, args_length);
         }
         else if (strcmp(token_list->value, ">>") == 0)
         {
-            // get_args(token_list, &args, &args_length);
             last_command->next = app->app_buffer->command_list[i] = new_command(REDIRECT_APP, args, args_length);
         }
         else if (strcmp(token_list->value, "&") == 0)
         {
-            // get_args(token_list, &args, &args_length);
             last_command->next = app->app_buffer->command_list[i] = new_command(BACKGROUND, args, args_length);
         }
         else if (strcmp(token_list->value, ";") == 0)
         {
-            // get_args(token_list, &args, &args_length);
             last_command->next = app->app_buffer->command_list[i] = new_command(SEQUENCE, args, args_length);
         }
         else if (strcmp(token_list->value, "&&") == 0)
         {
-            // get_args(token_list, &args, &args_length);
             last_command->next = app->app_buffer->command_list[i] = new_command(CONDITIONAL, args, args_length);
         }
         else
@@ -257,7 +250,338 @@ void change_dir(char *path)
 
 void exec_handler(app_t *app)
 {
+    Command *current_command = app->app_buffer->command_list[0];
+
+    if (strcmp(current_command->args[0], "cd") == 0)
+    {
+        change_dir(current_command->args[1]);
+    }
+    else
+    {
+        int pipefd[2];
+        int in_fd = 0;              // input file descriptor, start with stdin
+        int out_fd = STDOUT_FILENO; // output file descriptor, start with stdout
+        int err_fd = STDERR_FILENO; // error file descriptor, start with stderr
+
+        while (current_command != NULL)
+        {
+            if (current_command->next && current_command->next->type == PIPE)
+            {
+                if (pipe(pipefd) == -1)
+                {
+                    perror("pipe");
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+            pid_t pid = fork();
+            if (pid == 0) // fork a child process to handle the command execution
+            {
+                if (in_fd != 0) // if not stdin, there's a pipe to read from
+                {
+                    dup2(in_fd, STDIN_FILENO);
+                    close(in_fd);
+                }
+
+                if (current_command->next && current_command->next->type == PIPE)
+                {
+                    dup2(pipefd[1], STDOUT_FILENO);
+                    close(pipefd[1]);
+                }
+
+                switch (current_command->type)
+                {
+                case REDIRECT_IN:
+                    in_fd = open(current_command->args[1], O_RDONLY);
+                    dup2(in_fd, STDIN_FILENO);
+                    break;
+                case REDIRECT_OUT:
+                    out_fd = open(current_command->args[1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                    dup2(out_fd, STDOUT_FILENO);
+                    break;
+                case REDIRECT_ERR:
+                    err_fd = open(current_command->args[1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                    dup2(err_fd, STDERR_FILENO);
+                    break;
+                case REDIRECT_APP:
+                    out_fd = open(current_command->args[1], O_WRONLY | O_CREAT | O_APPEND, 0644);
+                    dup2(out_fd, STDOUT_FILENO);
+                    break;
+                case BACKGROUND:
+                    // TODO: handle background command
+                    break;
+                case SEQUENCE:
+                    // TODO: handle sequence of commands
+                    break;
+                case CONDITIONAL:
+                    // TODO: handle conditional execution
+                    break;
+                default:
+                    break;
+                }
+
+                if (execvp(current_command->args[0], current_command->args) == -1)
+                {
+                    perror("execvp");
+                    exit(EXIT_FAILURE);
+                }
+            }
+            else if (pid < 0)
+            {
+                perror("Error forking process");
+                exit(EXIT_FAILURE);
+            }
+            else
+            {
+                wait(NULL);
+
+                if (in_fd != 0)
+                    close(in_fd);
+
+                if (current_command->next && current_command->next->type == PIPE)
+                {
+                    close(pipefd[1]);
+                    in_fd = pipefd[0];
+                }
+
+                current_command = current_command->next ? current_command->next->next : NULL;
+            }
+        }
+    }
 }
+
+// void exec_handler(app_t *app)
+// {
+//     Command *current_command = app->app_buffer->command_list[0];
+
+//     if (strcmp(current_command->args[0], "cd") == 0)
+//     {
+//         change_dir(current_command->args[1]);
+//     }
+//     else
+//     {
+//         int pipefd[2];
+//         int in_fd = 0;              // input file descriptor, start with stdin
+//         int out_fd = STDOUT_FILENO; // output file descriptor, start with stdout
+//         int err_fd = STDERR_FILENO; // error file descriptor, start with stderr
+
+//         while (current_command != NULL)
+//         {
+//             if (current_command->next && current_command->next->type == PIPE)
+//             {
+//                 if (pipe(pipefd) == -1)
+//                 {
+//                     perror("pipe");
+//                     exit(EXIT_FAILURE);
+//                 }
+//             }
+
+//             pid_t pid = fork();
+//             if (pid == 0) // fork a child process to handle the command execution
+//             {
+//                 if (in_fd != 0) // if not stdin, there's a pipe to read from
+//                 {
+//                     dup2(in_fd, STDIN_FILENO);
+//                     close(in_fd);
+//                 }
+
+//                 if (current_command->next && current_command->next->type == PIPE)
+//                 {
+//                     dup2(pipefd[1], STDOUT_FILENO);
+//                     close(pipefd[1]);
+//                 }
+
+//                 switch (current_command->type)
+//                 {
+//                 case REDIRECT_IN:
+//                     in_fd = open(current_command->args[1], O_RDONLY);
+//                     break;
+//                 case REDIRECT_OUT:
+//                     out_fd = open(current_command->args[1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+//                     break;
+//                 case REDIRECT_ERR:
+//                     err_fd = open(current_command->args[1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+//                     break;
+//                 case REDIRECT_APP:
+//                     out_fd = open(current_command->args[1], O_WRONLY | O_CREAT | O_APPEND, 0644);
+//                     break;
+//                 case BACKGROUND:
+//                     // TODO: handle background command
+//                     break;
+//                 case SEQUENCE:
+//                     // TODO: handle sequence of commands
+//                     break;
+//                 case CONDITIONAL:
+//                     // TODO: handle conditional execution
+//                     break;
+//                 default:
+//                     break;
+//                 }
+
+//                 if (execvp(current_command->args[0], current_command->args) == -1)
+//                 {
+//                     perror("execvp");
+//                     exit(EXIT_FAILURE);
+//                 }
+//             }
+//             else if (pid < 0)
+//             {
+//                 perror("Error forking process");
+//                 exit(EXIT_FAILURE);
+//             }
+//             else
+//             {
+//                 wait(NULL);
+
+//                 if (in_fd != 0)
+//                     close(in_fd);
+
+//                 if (current_command->next && current_command->next->type == PIPE)
+//                 {
+//                     close(pipefd[1]);
+//                     in_fd = pipefd[0];
+//                 }
+
+//                 current_command = current_command->next ? current_command->next->next : NULL;
+//             }
+//         }
+//     }
+// }
+// void exec_handler(app_t *app)
+// {
+//     Command *current_command = app->app_buffer->command_list[0];
+
+//     if (strcmp(current_command->args[0], "cd") == 0)
+//     {
+//         change_dir(current_command->args[1]);
+//     }
+//     else
+//     {
+//         int pipefd[2];
+//         int in_fd = 0; // input file descriptor, start with stdin
+
+//         while (current_command != NULL)
+//         {
+//             if (current_command->next && current_command->next->type == PIPE)
+//             {
+//                 if (pipe(pipefd) == -1)
+//                 {
+//                     perror("pipe");
+//                     exit(EXIT_FAILURE);
+//                 }
+//             }
+
+//             pid_t pid = fork();
+//             if (pid == 0) // fork a child process to handle the command execution
+//             {
+//                 if (in_fd != 0) // if not stdin, there's a pipe to read from
+//                 {
+//                     dup2(in_fd, STDIN_FILENO);
+//                     close(in_fd);
+//                 }
+
+//                 if (current_command->next && current_command->next->type == PIPE)
+//                 {
+//                     dup2(pipefd[1], STDOUT_FILENO);
+//                     close(pipefd[1]);
+//                 }
+
+//                 if (execvp(current_command->args[0], current_command->args) == -1)
+//                 {
+//                     perror("execvp");
+//                     exit(EXIT_FAILURE);
+//                 }
+//             }
+//             else if (pid < 0)
+//             {
+//                 perror("Error forking process");
+//                 exit(EXIT_FAILURE);
+//             }
+//             else
+//             {
+//                 wait(NULL);
+
+//                 if (in_fd != 0)
+//                     close(in_fd);
+
+//                 if (current_command->next && current_command->next->type == PIPE)
+//                 {
+//                     close(pipefd[1]);
+//                     in_fd = pipefd[0];
+//                 }
+
+//                 current_command = current_command->next ? current_command->next->next : NULL;
+//             }
+//         }
+//     }
+// }
+
+// void exec_handler(app_t *app)
+// {
+//     Command *current_command = app->app_buffer->command_list[0];
+
+//     if (strcmp(current_command->args[0], "cd") == 0)
+//     {
+//         change_dir(current_command->args[1]);
+//     }
+//     else
+//     {
+
+//         pid_t pid = fork();
+//         if (pid == 0) // fork a child process to handle the command execution
+//         {
+
+//             if (current_command->next && current_command->next->type == PIPE)
+//             {
+//                 int pipefd[2];
+//                 if (pipe(pipefd) == -1)
+//                 {
+//                     perror("pipe");
+//                     exit(EXIT_FAILURE);
+//                 }
+
+//                 if (fork() == 0)
+//                 {
+//                     close(pipefd[0]);               // close reading end in the child
+//                     dup2(pipefd[1], STDOUT_FILENO); // send stdout to the pipe
+//                     close(pipefd[1]);               // this descriptor is no longer needed
+//                     if (execvp(current_command->args[0], current_command->args) == -1)
+//                     {
+//                         perror("execvp");
+//                         exit(EXIT_FAILURE);
+//                     }
+//                 }
+//                 else
+//                 {
+//                     wait(NULL);                    // wait for the child to finish
+//                     close(pipefd[1]);              // close writing end in the parent
+//                     dup2(pipefd[0], STDIN_FILENO); // get stdin from the pipe
+//                     close(pipefd[0]);              // this descriptor is no longer needed
+//                     if (execvp(current_command->next->next->args[0], current_command->next->next->args) == -1)
+//                     {
+//                         perror("execvp");
+//                         exit(EXIT_FAILURE);
+//                     }
+//                 }
+//             }
+
+//             if (execvp(current_command->args[0], current_command->args) == -1)
+//             {
+//                 perror("Error executing command");
+//             }
+
+//             exit(0);
+//         }
+//         else if (pid < 0)
+//         {
+//             perror("Error forking process");
+//         }
+//         else
+//         {
+//             wait(NULL);
+//         }
+//     }
+// }
 
 // @legacy exec_handler
 // void exec_handler(app_t *app)
