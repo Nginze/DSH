@@ -15,10 +15,24 @@
 #include <libgen.h>
 #include <fcntl.h>
 #include <string.h>
+#include <termios.h>
+#include <unistd.h>
+#include <signal.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 #include "utils.h"
 
 #define MAX_BUFFER_SIZE 1024
+#define MAX_HISTORY_SIZE 10
 #define MAX_ARGS 64
+#define HISTORY_FILE ".dsh_history"
+
+typedef struct CommandBuffer
+{
+    char *commands[MAX_HISTORY_SIZE];
+    int current;
+    int size;
+} cmdBuffer_t;
 
 typedef enum CommandType
 {
@@ -54,6 +68,7 @@ typedef struct InputBuffer
 typedef struct AppState
 {
     buff_t *app_buffer;
+    cmdBuffer_t *cmd_buffer;
     command_t current_command_type;
     size_t current_directory_length;
     char *current_directory;
@@ -63,9 +78,19 @@ typedef struct AppState
 // App utils
 buff_t *init_buffer();
 app_t *init_app();
+cmdBuffer_t *init_cmd_buffer();
 Command *new_command(command_t type, char **args, int args_length);
+
+// History utils
+void add_command(app_t *app, char *command);
+char *get_previous_command(app_t *app);
+char *get_next_command(app_t *app);
+void load_history(app_t *app);
+void intercept_input(app_t *app);
+
+// Parsing utils
 void parse_tokens(app_t *app);
-void print_prompt(app_t *app);
+char *print_prompt(app_t *app);
 void read_input(app_t *app);
 void prep_args(char *input, char **args);
 void exec_handler(app_t *app);
@@ -82,7 +107,6 @@ int main(int argc, char const *argv[])
 
     do
     {
-        print_prompt(app);
         read_input(app);
         tokenize(app->app_buffer->buffer, &app->app_buffer->token_list);
         parse_tokens(app);
@@ -91,8 +115,9 @@ int main(int argc, char const *argv[])
     } while (1);
 }
 
-void print_prompt(app_t *app)
+char *print_prompt(app_t *app)
 {
+    static char prompt[4096] = "";
     getcwd(app->current_directory, app->current_directory_length);
 
     FILE *fp = popen("git rev-parse --abbrev-ref HEAD 2>/dev/null", "r");
@@ -113,18 +138,28 @@ void print_prompt(app_t *app)
 
     if (strlen(git_branch) > 0)
     {
-        printf("%s (git:%s) > ", basename(app->current_directory), git_branch);
+        snprintf(prompt, sizeof(prompt), "%s (git:%s) > ", basename(app->current_directory), git_branch);
     }
     else
     {
-        printf("%s > ", basename(app->current_directory));
+        snprintf(prompt, sizeof(prompt), "%s > ", basename(app->current_directory));
     }
+
+    return prompt;
 }
+
 
 void read_input(app_t *app)
 {
-    int bytes_read = getline(&app->app_buffer->buffer, &app->app_buffer->buffer_length, stdin);
-    if (bytes_read <= 0)
+    char *line_read = NULL;
+    line_read = readline(print_prompt(app));
+    if (line_read && *line_read)
+    {
+        add_history(line_read);
+    }
+    app->app_buffer->buffer = line_read;
+    app->app_buffer->buffer_length = strlen(line_read);
+    if (app->app_buffer->buffer_length <= 0)
     {
         printf("Error reading input\n");
         exit(0);
@@ -350,11 +385,44 @@ void exec_handler(app_t *app)
     }
 }
 
+void add_command(app_t *app, char *command)
+{
+    cmdBuffer_t *buffer = app->cmd_buffer;
+
+    buffer->commands[buffer->current] = command;
+    buffer->current = (buffer->current + 1) % MAX_HISTORY_SIZE;
+    if (buffer->size < MAX_HISTORY_SIZE)
+    {
+        buffer->size++;
+    }
+
+    FILE *file = fopen(HISTORY_FILE, "a");
+    if (file != NULL)
+    {
+        fprintf(file, "%s\n", command);
+        fclose(file);
+    }
+}
+
+void load_history(app_t *app)
+{
+    FILE *file = fopen(HISTORY_FILE, "r");
+    if (file != NULL)
+    {
+        char line[MAX_BUFFER_SIZE];
+        while (fgets(line, sizeof(line), file) != NULL)
+        {
+            line[strcspn(line, "\n")] = '\0';
+            add_command(app, strdup(line));
+        }
+        fclose(file);
+    }
+}
 
 buff_t *init_buffer()
 {
     buff_t *buffer = (buff_t *)malloc(sizeof(buff_t));
-    buffer->buffer = NULL;
+    buffer->buffer = malloc(MAX_BUFFER_SIZE);
     buffer->command_list = (Command **)malloc(sizeof(Command *) * MAX_ARGS);
     return buffer;
 }
@@ -363,10 +431,44 @@ app_t *init_app()
 {
     app_t *app = (app_t *)malloc(sizeof(app_t));
     app->app_buffer = init_buffer();
+    app->cmd_buffer = init_cmd_buffer();
     app->has_init = false;
     app->current_directory = (char *)malloc(1024);
     app->current_directory_length = 1024;
     return app;
+}
+
+cmdBuffer_t *init_cmd_buffer()
+{
+    cmdBuffer_t *buffer = (cmdBuffer_t *)malloc(sizeof(cmdBuffer_t));
+    buffer->current = 0;
+    buffer->size = 0;
+
+    return buffer;
+}
+
+char *get_previous_command(app_t *app)
+{
+    cmdBuffer_t *buffer = app->cmd_buffer;
+
+    if (buffer->size == 0)
+    {
+        return NULL;
+    }
+    buffer->current = (buffer->current - 1 + MAX_HISTORY_SIZE) % MAX_HISTORY_SIZE;
+    return buffer->commands[buffer->current];
+}
+
+char *get_next_command(app_t *app)
+{
+    cmdBuffer_t *buffer = app->cmd_buffer;
+
+    if (buffer->size == 0)
+    {
+        return NULL;
+    }
+    buffer->current = (buffer->current + 1) % MAX_HISTORY_SIZE;
+    return buffer->commands[buffer->current];
 }
 
 Command *new_command(command_t type, char **args, int args_length)

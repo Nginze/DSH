@@ -1,13 +1,14 @@
 CC=gcc
-CFLAGS=-I.
+CFLAGS = -g -Wall
+LDFLAGS = -lreadline
 
 all:	main
 
 main:	main.c	utils.o
-	$(CC) -o main main.c utils.o $(CFLAGS)
+	$(CC) $(CFLAGS) -o main main.c utils.o $(LDFLAGS)
 
 utils.o:	utils.c	utils.h
-	$(CC) -c utils.c $(CFLAGS)
+	$(CC) $(CFLAGS) -c utils.c 
 
 clean: 
-	$(CC) -f main utils.o
+	rm -f main *.o
