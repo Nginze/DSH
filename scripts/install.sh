@@ -11,7 +11,7 @@ git pull origin master
 
 # Check if the pull was successful
 if [ $? -eq 0 ]; then
-    echo "Successfully pulled the latest commits"
+    echo " "
 else
-    echo "Failed to pull the latest commits"
+    echo " "
 fi
