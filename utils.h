@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 /***************************************************************************/ /**
    @file         utils.h
@@ -7,12 +7,19 @@
    @brief        DSH (Dash Shell - Minimal Shell)
  *******************************************************************************/
 
-
-typedef struct Token{
-    char* value;
-    struct Token* next;
+/**
+ * @struct Token
+ * @brief Represents a token in a shell command.
+ *
+ * The Token struct contains a string value and a pointer to the next token in the command.
+ */
+typedef struct Token
+{
+  char *value;        /**< The string value of the token. */
+  struct Token *next; /**< Pointer to the next token in the command. */
 } Token;
 
-Token* createToken(char* value);
-void tokenize(char* input, Token** args);
-void printTokens(Token* head);
+// Function Prototypes
+Token *createToken(char *value);
+void tokenize(char *input, Token **args);
+void printTokens(Token *head);

@@ -19,3 +19,12 @@
 - Prompt customization with `rc` files
 
 - Signal Handling (`SIGINT` and `SIGTERM`)
+
+
+`@Update:`
+
+- Most features implemented (bugs lingering);
+- No redirection and other compound command support. 
+- No env support. 
+- No rc file support yet
+- No scripting support yet

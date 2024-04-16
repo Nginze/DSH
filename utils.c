@@ -10,6 +10,12 @@
 #include <string.h>
 #include "utils.h"
 
+/**
+ * Creates a new token with the given value.
+ *
+ * @param value The value of the token.
+ * @return A pointer to the newly created token.
+ */
 Token *new_token(char *value)
 {
     Token *token = malloc(sizeof(Token));
@@ -18,6 +24,12 @@ Token *new_token(char *value)
     return token;
 }
 
+/**
+ * Tokenizes the input string based on the given delimiters and stores the tokens in a linked list.
+ *
+ * @param input The input string to be tokenized.
+ * @param args  A pointer to a Token pointer, which will be updated to point to the head of the linked list of tokens.
+ */
 void tokenize(char *input, Token **args)
 {
     const char *delimiters = " \t\r\n\a";
@@ -39,6 +51,11 @@ void tokenize(char *input, Token **args)
     *args = head;
 }
 
+/**
+ * Prints the values of each token in a linked list.
+ *
+ * @param head The head of the linked list of tokens.
+ */
 void printTokens(Token *head)
 {
     for (Token *current = head; current != NULL; current = current->next)
