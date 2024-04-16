@@ -40,6 +40,7 @@ void get_args(Token *token, char ***args, int *args_length);
 void print_commands(Command *command);
 void completion(const char *buf, linenoiseCompletions *lc);
 char *hints(const char *buf, int *color, int *bold);
+void print_config(config_t *config);
 
 // Free app memory
 void free_buffer(buff_t *buffer);
@@ -49,20 +50,6 @@ void free_commands(Command **command);
 
 // Built-in commands (No system binaries)
 void change_dir(char *path);
-
-void print_config(config_t *config)
-{
-    if (config == NULL)
-    {
-        printf("Config is NULL.\n");
-        return;
-    }
-
-    printf("Prompt Theme: %s\n", config->promptTheme ? config->promptTheme : "NULL");
-    printf("History File: %s\n", config->historyFile ? config->historyFile : "NULL");
-    printf("History Size: %d\n", config->historySize);
-    printf("Editor: %s\n", config->editor ? config->editor : "NULL");
-}
 
 int main(int argc, char const *argv[])
 {
@@ -155,10 +142,12 @@ char *print_prompt(app_t *app)
         app->has_init = true;
     }
 
+    // Color escape sequences
     char *green = "\033[0;32m";
     char *blue = "\033[0;34m";
     char *reset = "\033[0m";
 
+    // Set color based on the prompt theme
     if (strlen(git_branch) > 0)
     {
         if (strcmp(app->config->promptTheme, "colored") == 0)
@@ -662,4 +651,23 @@ void free_commands(Command **command)
 
     // Set the head of the linked list to NULL
     *command = NULL;
+}
+
+/**
+ * Prints the configuration settings.
+ *
+ * @param config A pointer to the configuration structure.
+ */
+void print_config(config_t *config)
+{
+    if (config == NULL)
+    {
+        printf("Config is NULL.\n");
+        return;
+    }
+
+    printf("Prompt Theme: %s\n", config->promptTheme ? config->promptTheme : "NULL");
+    printf("History File: %s\n", config->historyFile ? config->historyFile : "NULL");
+    printf("History Size: %d\n", config->historySize);
+    printf("Editor: %s\n", config->editor ? config->editor : "NULL");
 }
