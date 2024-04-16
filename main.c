@@ -23,12 +23,11 @@
 #include "types.h"
 
 // App Macros
-#define MAX_BUFFER_SIZE 4096 
+#define MAX_BUFFER_SIZE 4096
 #define MAX_HISTORY_SIZE 250
 #define MAX_ARGS 64
 #define HISTORY_FILE ".dsh_history"
 #define RC_FILE ".dshrc"
-
 
 // Parsing utils
 void parse_tokens(app_t *app);
@@ -46,26 +45,17 @@ void free_buffer(buff_t *buffer);
 void free_app(app_t *app);
 void free_cmd_buffer(cmdBuffer_t *buffer);
 
-// Signal hanlder
-void sig_handler(int signo);
-
 // Built-in commands (No system binaries)
 void change_dir(char *path);
 
 int main(int argc, char const *argv[])
 {
 
-    if (signal(SIGINT, sig_handler) == SIG_ERR || signal(SIGTSTP, sig_handler) == SIG_ERR)
-    {
-        printf("\nError: Signal Leak\n");
-        exit(1);
-    }
-
     app_t *app = init_app();
     linenoiseSetCompletionCallback(completion);
     linenoiseSetHintsCallback(hints);
-    // linenoiseHistoryLoad(HISTORY_FILE);
-    // linenoiseHistorySetMaxLen(MAX_HISTORY_SIZE);
+    linenoiseHistoryLoad(HISTORY_FILE);
+    linenoiseHistorySetMaxLen(MAX_HISTORY_SIZE);
 
     do
     {
@@ -127,7 +117,7 @@ char *print_prompt(app_t *app)
 
 /**
  * Reads user input from the command line and stores it in the application buffer.
- * 
+ *
  * @param app The application structure containing the buffer to store the input.
  */
 void read_input(app_t *app)
@@ -147,6 +137,10 @@ void read_input(app_t *app)
     {
         printf("Error reading input\n");
         exit(0);
+    }
+    else
+    {
+        printf("You entered: %s\n", app->app_buffer->buffer);
     }
 }
 
@@ -222,7 +216,7 @@ void parse_tokens(app_t *app)
 
 /**
  * Extracts arguments from a linked list of tokens.
- * 
+ *
  * @param token The head of the linked list of tokens.
  * @param args Pointer to the array of arguments.
  * @param args_length Pointer to the length of the args array.
@@ -326,6 +320,7 @@ void exec_handler(app_t *app)
             pid_t pid = fork();
             if (pid == 0) // fork a child process to handle the command execution
             {
+
                 if (in_fd != 0) // if not stdin, there's a pipe to read from
                 {
                     dup2(in_fd, STDIN_FILENO);
@@ -367,8 +362,6 @@ void exec_handler(app_t *app)
         }
     }
 }
-
-
 
 /**
  * Prints the commands in a linked list of Command structures.
@@ -501,13 +494,5 @@ void free_cmd_buffer(cmdBuffer_t *buffer)
     if (buffer)
     {
         free(buffer);
-    }
-}
-
-void sig_handler(int signo)
-{
-    if (signo == SIGINT || signo == SIGTSTP)
-    {
-        printf("\nCannot be terminated using Ctrl+C or Ctrl+Z. Use 'exit' command to quit.\n");
     }
 }

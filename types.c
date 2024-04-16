@@ -11,6 +11,7 @@
 
 // Macros
 #define MAX_BUFFER_SIZE 4096
+#define MAX_ARGS 64
 
 /**
  * Initializes a buffer by allocating memory for the buffer and command list.
