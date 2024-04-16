@@ -1,33 +1,42 @@
 #!/bin/bash
 
-# Test a simple command
-output=$(echo 'ls' | ../main)
-if [ $? -eq 0 ]; then
-    echo "ls command: Success"
-else
-    echo "ls command: Failure"
-fi
+# Test script for your shell
 
-# Test a command with options
-output=$(echo 'ls -l' | ../main)
-if [ $? -eq 0 ]; then
-    echo "ls -l command: Success"
-else
-    echo "ls -l command: Failure"
-fi
+# Function to display test results
+display_result() {
+    if [ $1 -eq 0 ]; then
+        echo -e "\e[32mTest Passed: $2\e[0m"
+    else
+        echo -e "\e[31mTest Failed: $2\e[0m"
+    fi
+}
 
-# Test a command with a pipe
-output=$(echo 'ls | grep test.txt' | ../main)
-if [ $? -eq 0 ]; then
-    echo "Pipe command: Success"
-else
-    echo "Pipe command: Failure"
-fi
+# Function to run command with pipe
+run_with_pipe() {
+    echo "$1" | grep "test"
+}
 
-# Test a command with redirection
-output=$(echo 'ls > test.txt' | ../main)
-if [ $? -eq 0 ]; then
-    echo "Redirection command: Success"
-else
-    echo "Redirection command: Failure"
-fi
+# Run your shell with each command and check the exit code
+# Example commands to test
+commands=(
+    "ls -l"
+    "pwd"
+    "echo Hello, World!"
+    "ls non_existent_directory"
+    "cat /etc/passwd"
+    "echo $?"
+    "run_with_pipe 'echo \"This is a test\"'"
+    "exit"
+)
+
+for cmd in "${commands[@]}"; do
+    echo -e "\nExecuting command: $cmd"
+    if [[ "$cmd" == "run_with_pipe"* ]]; then
+        eval "$cmd"
+    else
+        ./main "$cmd"
+    fi
+    display_result $? "$cmd"
+done
+
+
