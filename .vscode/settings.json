@@ -1,0 +1,7 @@
+{
+  "files.associations": {
+    "*.embeddedhtml": "html",
+    "*.tsx": "typescriptreact",
+    "linenoise.h": "c"
+  }
+}

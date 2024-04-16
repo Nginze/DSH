@@ -18,14 +18,14 @@
 #include <termios.h>
 #include <unistd.h>
 #include <signal.h>
-#include <readline/readline.h>
-#include <readline/history.h>
+#include "linenoise.h"
 #include "utils.h"
 
 #define MAX_BUFFER_SIZE 1024
-#define MAX_HISTORY_SIZE 10
+#define MAX_HISTORY_SIZE 250
 #define MAX_ARGS 64
 #define HISTORY_FILE ".dsh_history"
+#define RC_FILE ".dshrc"
 
 typedef struct CommandBuffer
 {
@@ -100,10 +100,70 @@ void print_commands(Command *command);
 // Built-in commands (No system binaries)
 void change_dir(char *path);
 
+void completion(const char *buf, linenoiseCompletions *lc)
+{
+    FILE *file = fopen(HISTORY_FILE, "r");
+    if (file == NULL)
+    {
+        return;
+    }
+
+    char *line = NULL;
+    size_t len = 0;
+    while (getline(&line, &len, file) != -1)
+    {
+        // Remove newline character
+        line[strcspn(line, "\n")] = 0;
+
+        // If the line in the history file starts with the user's input, add it as a completion
+        if (strncmp(buf, line, strlen(buf)) == 0)
+        {
+            linenoiseAddCompletion(lc, line);
+        }
+    }
+
+    free(line);
+    fclose(file);
+}
+
+char *hints(const char *buf, int *color, int *bold)
+{
+    FILE *file = fopen(HISTORY_FILE, "r");
+    if (file == NULL)
+    {
+        return NULL;
+    }
+
+    char *line = NULL;
+    size_t len = 0;
+    while (getline(&line, &len, file) != -1)
+    {
+        // Remove newline character
+        line[strcspn(line, "\n")] = 0;
+
+        // If the line in the history file starts with the user's input, return it as a hint
+        if (strncmp(buf, line, strlen(buf)) == 0)
+        {
+            fclose(file);
+            *color = 36; // Set hint color to magenta
+            *bold = 0;
+            return line + strlen(buf); // Return the part of the line that's not yet typed
+        }
+    }
+
+    free(line);
+    fclose(file);
+    return NULL;
+}
+
 int main(int argc, char const *argv[])
 {
 
     app_t *app = init_app();
+    linenoiseSetCompletionCallback(completion);
+    linenoiseSetHintsCallback(hints);
+    linenoiseHistoryLoad(HISTORY_FILE);
+    linenoiseHistorySetMaxLen(MAX_HISTORY_SIZE);
 
     do
     {
@@ -148,17 +208,33 @@ char *print_prompt(app_t *app)
     return prompt;
 }
 
-
 void read_input(app_t *app)
 {
-    char *line_read = NULL;
-    line_read = readline(print_prompt(app));
+    char *line_read = linenoise(print_prompt(app));
+
     if (line_read && *line_read)
     {
-        add_history(line_read);
+        linenoiseHistoryAdd(line_read);
+        linenoiseHistorySave(HISTORY_FILE);
     }
+
+    // handle tilde expansion
+    char *home_dir = getenv("HOME");
+    char *tilde_pos = NULL;
+    while ((tilde_pos = strstr(line_read, "~")) != NULL)
+    {
+        char *new_line_read = malloc(strlen(line_read) + strlen(home_dir) + 1);
+        strncpy(new_line_read, line_read, tilde_pos - line_read);
+        new_line_read[tilde_pos - line_read] = '\0';
+        strcat(new_line_read, home_dir);
+        strcat(new_line_read, tilde_pos + 1);
+        free(line_read);
+        line_read = new_line_read;
+    }
+
     app->app_buffer->buffer = line_read;
-    app->app_buffer->buffer_length = strlen(line_read);
+    app->app_buffer->buffer_length = line_read ? strlen(line_read) : 0;
+
     if (app->app_buffer->buffer_length <= 0)
     {
         printf("Error reading input\n");
