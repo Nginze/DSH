@@ -18,6 +18,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
+#include <ctype.h>
 #include "linenoise.h"
 #include "utils.h"
 #include "types.h"
@@ -44,6 +45,7 @@ char *hints(const char *buf, int *color, int *bold);
 void free_buffer(buff_t *buffer);
 void free_app(app_t *app);
 void free_cmd_buffer(cmdBuffer_t *buffer);
+void free_commands(Command **command);
 
 // Built-in commands (No system binaries)
 void change_dir(char *path);
@@ -61,10 +63,28 @@ int main(int argc, char const *argv[])
     {
         read_input(app);
         tokenize(app->app_buffer->buffer, &app->app_buffer->token_list);
+
+        linenoiseFree(app->app_buffer->buffer);
+        app->app_buffer->buffer = NULL;
+        app->app_buffer->buffer_length = 0;
+
         parse_tokens(app);
+        free(app->app_buffer->token_list);
+        app->app_buffer->token_list = NULL;
+
         exec_handler(app);
 
+        if (app->app_buffer->command_list != NULL)
+        {
+            free_commands(&(app->app_buffer->command_list[0]));
+        }
+
     } while (1);
+
+    // free line after use
+    linenoiseFree(app->app_buffer->buffer);
+    free_buffer(app->app_buffer);
+    free_app(app);
 }
 
 /**
@@ -79,7 +99,13 @@ int main(int argc, char const *argv[])
  */
 char *print_prompt(app_t *app)
 {
-    static char prompt[MAX_BUFFER_SIZE] = "";
+    char *prompt = (char *)malloc(MAX_BUFFER_SIZE * sizeof(char));
+    if (prompt == NULL)
+    {
+        perror("Error allocating memory for prompt");
+        exit(EXIT_FAILURE);
+    }
+
     getcwd(app->current_directory, app->current_directory_length);
 
     FILE *fp = popen("git rev-parse --abbrev-ref HEAD 2>/dev/null", "r");
@@ -91,25 +117,29 @@ char *print_prompt(app_t *app)
         git_branch[strcspn(git_branch, "\n")] = 0; // remove trailing newline
         pclose(fp);
     }
+    else
+    {
+        perror("popen failed");
+        free(prompt); // Free the allocated memory before returning NULL
+        return NULL;
+    }
 
     if (app->has_init == false)
     {
-
         printf("Welcome to DSH (Dash Shell) - A minimal shell\n");
         printf("Type 'exit' to quit the shell\n");
         printf("Type 'help' for list of commands\n");
         printf("\n");
-
         app->has_init = true;
     }
 
     if (strlen(git_branch) > 0)
     {
-        snprintf(prompt, sizeof(prompt), "%s (git:%s) > ", basename(app->current_directory), git_branch);
+        snprintf(prompt, MAX_BUFFER_SIZE, "%s (git:%s) > ", basename(app->current_directory), git_branch);
     }
     else
     {
-        snprintf(prompt, sizeof(prompt), "%s > ", basename(app->current_directory));
+        snprintf(prompt, MAX_BUFFER_SIZE, "%s > ", basename(app->current_directory));
     }
 
     return prompt;
@@ -122,25 +152,77 @@ char *print_prompt(app_t *app)
  */
 void read_input(app_t *app)
 {
-    char *line_read = NULL;
-    line_read = linenoise(print_prompt(app));
+    char *line_read = linenoise(print_prompt(app));
 
-    if (line_read && *line_read)
+    if (line_read == NULL)
+    {
+        free(line_read);
+        return;
+    }
+
+    if (*line_read)
     {
         linenoiseHistoryAdd(line_read);
         linenoiseHistorySave(HISTORY_FILE);
     }
 
-    app->app_buffer->buffer = line_read;
-    app->app_buffer->buffer_length = strlen(line_read);
+    // handle tilde expansion
+    char *home_dir = getenv("HOME");
+    char *tilde_pos = NULL;
+    while ((tilde_pos = strstr(line_read, "~")) != NULL)
+    {
+        char *new_line_read = malloc(strlen(line_read) + strlen(home_dir) + 1);
+        strncpy(new_line_read, line_read, tilde_pos - line_read);
+        new_line_read[tilde_pos - line_read] = '\0';
+        strcat(new_line_read, home_dir);
+        strcat(new_line_read, tilde_pos + 1);
+        free(line_read);
+        line_read = new_line_read;
+    }
+
+    // handle quote expansion
+    char *quote_start = NULL;
+    char *quote_end = NULL;
+    char *new_line_read = NULL;
+    while ((quote_start = strchr(line_read, '"')) != NULL)
+    {
+        quote_end = strchr(quote_start + 1, '"');
+        if (quote_end == NULL)
+        {
+            printf("Mismatched quotes\n");
+            free(line_read);
+            return;
+        }
+
+        // Allocate memory for new_line_read
+        new_line_read = malloc(strlen(line_read) - (quote_end - quote_start) + 1);
+        if (new_line_read == NULL)
+        {
+            printf("Error allocating memory for new_line_read\n");
+            free(line_read);
+            return;
+        }
+
+        // Copy the part before the quote
+        strncpy(new_line_read, line_read, quote_start - line_read);
+        new_line_read[quote_start - line_read] = '\0';
+
+        // Copy the part inside the quote
+        strncat(new_line_read, quote_start + 1, quote_end - quote_start - 1);
+
+        // Copy the part after the quote
+        strcat(new_line_read, quote_end + 1);
+
+        free(line_read);
+        line_read = new_line_read;
+    }
+
+    app->app_buffer->buffer = strdup(line_read);
+    app->app_buffer->buffer_length = strlen(app->app_buffer->buffer);
+
     if (app->app_buffer->buffer_length <= 0)
     {
-        printf("Error reading input\n");
         exit(0);
-    }
-    else
-    {
-        printf("You entered: %s\n", app->app_buffer->buffer);
     }
 }
 
@@ -153,6 +235,7 @@ void read_input(app_t *app)
  */
 void parse_tokens(app_t *app)
 {
+
     Token *token_list = app->app_buffer->token_list;
     Command *last_command = new_command(SIMPLE, NULL, 0);
 
@@ -205,12 +288,17 @@ void parse_tokens(app_t *app)
         i++;
 
         if (args_length > 0)
+        {
             for (int i = 0; i < args_length; i++)
             {
                 token_list = token_list->next;
             }
+        }
         else
+        {
+
             token_list = token_list->next;
+        }
     }
 }
 
@@ -227,7 +315,7 @@ void get_args(Token *token, char ***args, int *args_length)
     int i = 0;
 
     // Allocate memory for args
-    *args = malloc(sizeof(char *) * MAX_ARGS);
+    *args = malloc(sizeof(char *) * (MAX_ARGS + 1)); // Allocate an extra element for the NULL pointer
     if (*args == NULL)
     {
         printf("Error allocating memory for args\n");
@@ -244,6 +332,8 @@ void get_args(Token *token, char ***args, int *args_length)
         current = current->next;
         i++;
     }
+
+    (*args)[i] = NULL; // Add the NULL pointer at the end of the args array
     *args_length = i;
 }
 
@@ -281,24 +371,27 @@ void change_dir(char *path)
     {
         perror("Error changing directory");
     }
-    else
-    {
-    }
 }
 
 void exec_handler(app_t *app)
 {
+
     Command *current_command = app->app_buffer->command_list[0];
 
-    if (strcmp(current_command->args[0], "cd") == 0)
+    if (current_command == NULL || current_command->args[0] == NULL)
+    {
+        return;
+    }
+    else if (strcmp(current_command->args[0], "cd") == 0)
     {
         change_dir(current_command->args[1]);
     }
     else if (strcmp(current_command->args[0], "exit") == 0)
     {
-        free_buffer(app->app_buffer);
-        free_cmd_buffer(app->cmd_buffer);
-        free_app(app);
+        // free_command(app->app_buffer->command_list[0]);
+        // free_token(app->app_buffer->token_list);
+        // free_buffer(app->app_buffer);
+        // free_app(app);
         exit(0);
     }
     else
@@ -333,10 +426,16 @@ void exec_handler(app_t *app)
                     close(pipefd[1]);
                 }
 
-                if (execvp(current_command->args[0], current_command->args) == -1)
+                if (current_command->args[0] != NULL && current_command->args != NULL)
                 {
-                    perror("execvp");
-                    exit(EXIT_FAILURE);
+                    if (execvp(current_command->args[0], current_command->args) == -1)
+                    {
+                        perror("execvp");
+                        exit(EXIT_FAILURE);
+                    }
+                }
+                else
+                {
                 }
             }
             else if (pid < 0)
@@ -371,6 +470,13 @@ void exec_handler(app_t *app)
 void print_commands(Command *command)
 {
     Command *current = command;
+
+    if (current == NULL)
+    {
+        printf("Command List is NULL\n");
+        return;
+    }
+
     while (current != NULL)
     {
         printf("Command type: %d\n", current->type);
@@ -495,4 +601,37 @@ void free_cmd_buffer(cmdBuffer_t *buffer)
     {
         free(buffer);
     }
+}
+
+/**
+ * Frees all commands in a linked list of Command structures.
+ *
+ * @param command A pointer to the head of the linked list of Command structures.
+ */
+void free_commands(Command **command)
+{
+    Command *current = *command;
+    Command *next;
+
+    while (current != NULL)
+    {
+        next = current->next;
+
+        // Free the memory allocated for the command's arguments
+        for (int i = 0; i < current->args_length; i++)
+        {
+            free(current->args[i]);
+        }
+
+        // Free the memory allocated for the command's args array
+        free(current->args);
+
+        // Free the memory allocated for the command itself
+        free(current);
+
+        current = next;
+    }
+
+    // Set the head of the linked list to NULL
+    *command = NULL;
 }

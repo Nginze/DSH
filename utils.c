@@ -32,8 +32,15 @@ Token *new_token(char *value)
  */
 void tokenize(char *input, Token **args)
 {
+
+    if (input == NULL)
+    {
+        return;
+    }
+
     const char *delimiters = " \t\r\n\a";
     char *token_value = strtok(input, delimiters);
+
     if (token_value == NULL)
     {
         return;
