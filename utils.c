@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include "utils.h"
 
@@ -30,6 +31,7 @@ Token *new_token(char *value)
  * @param input The input string to be tokenized.
  * @param args  A pointer to a Token pointer, which will be updated to point to the head of the linked list of tokens.
  */
+
 void tokenize(char *input, Token **args)
 {
 

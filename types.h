@@ -15,17 +15,27 @@
 // Macros
 #define MAX_COMMANDS_SIZE 4096
 
+/**
+ * @brief Structure representing the configuration settings for the shell.
+ */
+typedef struct Config
+{
+    char *promptTheme; /**< The theme for the shell prompt. */
+    char *historyFile; /**< The file to store command history. */
+    int historySize;   /**< The maximum number of commands to store in history. */
+    char *editor;      /**< The default text editor for the shell. */
+} config_t;
 
 /**
  * @brief Structure representing a command buffer.
- * 
+ *
  * This structure holds an array of commands, along with the current index and size of the buffer.
  */
 typedef struct CommandBuffer
 {
     char *commands[MAX_COMMANDS_SIZE]; /**< Array of commands */
-    int current; /**< Current index in the buffer */
-    int size; /**< Size of the buffer */
+    int current;                       /**< Current index in the buffer */
+    int size;                          /**< Size of the buffer */
 } cmdBuffer_t;
 
 /**
@@ -46,7 +56,7 @@ typedef enum CommandType
 
 /**
  * @brief Represents a command in the shell.
- * 
+ *
  * This struct stores information about a command, including its type, the length of its arguments,
  * the arguments themselves, and a pointer to the next command in a linked list.
  */
@@ -60,7 +70,7 @@ typedef struct Command
 
 /**
  * @brief Structure representing an input buffer.
- * 
+ *
  * This structure holds information about an input buffer, including the buffer itself,
  * the parsed arguments, the token list, the command list, and the lengths of the buffer
  * and input.
@@ -77,7 +87,7 @@ typedef struct InputBuffer
 
 /**
  * @brief Represents the state of the application.
- * 
+ *
  * The `app_t` struct holds information about the current state of the application.
  * It includes a buffer for storing application data, a command buffer for storing
  * command-related data, the type of the current command, the length of the current
@@ -90,13 +100,16 @@ typedef struct AppState
     cmdBuffer_t *cmd_buffer;
     command_t current_command_type;
     size_t current_directory_length;
+    config_t *config;
     char *current_directory;
     bool has_init;
-} app_t;
 
+} app_t;
 
 // App utils
 buff_t *init_buffer();
 app_t *init_app();
+config_t *init_config();
 cmdBuffer_t *init_cmd_buffer();
 Command *new_command(command_t type, char **args, int args_length);
+void load_config(const char *filename, config_t *config);

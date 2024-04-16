@@ -8,9 +8,12 @@
 // Library Imports
 #include "types.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-// Macros
+// a Macros
 #define MAX_BUFFER_SIZE 4096
+#define MAX_LINE_LEN 256
 #define MAX_ARGS 64
 
 /**
@@ -43,6 +46,8 @@ app_t *init_app()
     app->has_init = false;
     app->current_directory = (char *)malloc(1024);
     app->current_directory_length = 1024;
+    app->config = init_config();
+
     return app;
 }
 
@@ -58,6 +63,30 @@ cmdBuffer_t *init_cmd_buffer()
     buffer->size = 0;
 
     return buffer;
+}
+
+/**
+ * @brief Initializes a config object.
+ *
+ * This function allocates memory for a config object and initializes its members.
+ *
+ * @return A pointer to the initialized config object.
+ */
+config_t *init_config()
+{
+    config_t *config = (config_t *)malloc(sizeof(config_t));
+    if (config == NULL)
+    {
+        return NULL; // return NULL if memory allocation failed
+    }
+
+    // Initialize the members of the config object here
+    config->promptTheme = NULL;
+    config->historyFile = NULL;
+    config->historySize = 0;
+    config->editor = NULL;
+
+    return config;
 }
 
 /**
@@ -83,4 +112,46 @@ Command *new_command(command_t type, char **args, int args_length)
     new_command->args_length = args_length;
 
     return new_command;
+}
+
+/**
+ * Loads the configuration from a file and populates the config_t structure.
+ *
+ * @param filename The name of the configuration file.
+ * @param config   A pointer to the config_t structure to populate.
+ */
+void load_config(const char *filename, config_t *config)
+{
+    FILE *file = fopen(filename, "r");
+    if (file == NULL)
+    {
+        perror("Error opening config file");
+        return;
+    }
+
+    char line[MAX_LINE_LEN];
+    while (fgets(line, sizeof(line), file) != NULL)
+    {
+        char *key = strtok(line, " =\n");
+        char *value = strtok(NULL, " =\n");
+
+        if (strcmp(key, "PROMPT_THEME") == 0)
+        {
+            config->promptTheme = strdup(value);
+        }
+        else if (strcmp(key, "HISTORY_FILE") == 0)
+        {
+            config->historyFile = strdup(value);
+        }
+        else if (strcmp(key, "HISTORY_SIZE") == 0)
+        {
+            config->historySize = atoi(value);
+        }
+        else if (strcmp(key, "EDITOR") == 0)
+        {
+            config->editor = strdup(value);
+        }
+    }
+
+    fclose(file);
 }

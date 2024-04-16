@@ -50,15 +50,37 @@ void free_commands(Command **command);
 // Built-in commands (No system binaries)
 void change_dir(char *path);
 
+void print_config(config_t *config)
+{
+    if (config == NULL)
+    {
+        printf("Config is NULL.\n");
+        return;
+    }
+
+    printf("Prompt Theme: %s\n", config->promptTheme ? config->promptTheme : "NULL");
+    printf("History File: %s\n", config->historyFile ? config->historyFile : "NULL");
+    printf("History Size: %d\n", config->historySize);
+    printf("Editor: %s\n", config->editor ? config->editor : "NULL");
+}
+
 int main(int argc, char const *argv[])
 {
+    // Ignore SIGINT signal
+    signal(SIGINT, SIG_IGN);
 
+    // Initialize app and config
     app_t *app = init_app();
+
+    // Set shell configurations
+    load_config(RC_FILE, app->config);
+    linenoiseSetMultiLine(1);
     linenoiseSetCompletionCallback(completion);
     linenoiseSetHintsCallback(hints);
     linenoiseHistoryLoad(HISTORY_FILE);
     linenoiseHistorySetMaxLen(MAX_HISTORY_SIZE);
 
+    // App Loop
     do
     {
         read_input(app);
@@ -133,13 +155,31 @@ char *print_prompt(app_t *app)
         app->has_init = true;
     }
 
+    char *green = "\033[0;32m";
+    char *blue = "\033[0;34m";
+    char *reset = "\033[0m";
+
     if (strlen(git_branch) > 0)
     {
-        snprintf(prompt, MAX_BUFFER_SIZE, "%s (git:%s) > ", basename(app->current_directory), git_branch);
+        if (strcmp(app->config->promptTheme, "colored") == 0)
+        {
+            snprintf(prompt, MAX_BUFFER_SIZE, "%s%s%s (git:%s%s%s) > ", green, basename(app->current_directory), reset, blue, git_branch, reset);
+        }
+        else
+        {
+            snprintf(prompt, MAX_BUFFER_SIZE, "%s (git:%s) > ", basename(app->current_directory), git_branch);
+        }
     }
     else
     {
-        snprintf(prompt, MAX_BUFFER_SIZE, "%s > ", basename(app->current_directory));
+        if (strcmp(app->config->promptTheme, "colored") == 0)
+        {
+            snprintf(prompt, MAX_BUFFER_SIZE, "%s%s%s > ", green, basename(app->current_directory), reset);
+        }
+        else
+        {
+            snprintf(prompt, MAX_BUFFER_SIZE, "%s > ", basename(app->current_directory));
+        }
     }
 
     return prompt;
@@ -176,43 +216,6 @@ void read_input(app_t *app)
         new_line_read[tilde_pos - line_read] = '\0';
         strcat(new_line_read, home_dir);
         strcat(new_line_read, tilde_pos + 1);
-        free(line_read);
-        line_read = new_line_read;
-    }
-
-    // handle quote expansion
-    char *quote_start = NULL;
-    char *quote_end = NULL;
-    char *new_line_read = NULL;
-    while ((quote_start = strchr(line_read, '"')) != NULL)
-    {
-        quote_end = strchr(quote_start + 1, '"');
-        if (quote_end == NULL)
-        {
-            printf("Mismatched quotes\n");
-            free(line_read);
-            return;
-        }
-
-        // Allocate memory for new_line_read
-        new_line_read = malloc(strlen(line_read) - (quote_end - quote_start) + 1);
-        if (new_line_read == NULL)
-        {
-            printf("Error allocating memory for new_line_read\n");
-            free(line_read);
-            return;
-        }
-
-        // Copy the part before the quote
-        strncpy(new_line_read, line_read, quote_start - line_read);
-        new_line_read[quote_start - line_read] = '\0';
-
-        // Copy the part inside the quote
-        strncat(new_line_read, quote_start + 1, quote_end - quote_start - 1);
-
-        // Copy the part after the quote
-        strcat(new_line_read, quote_end + 1);
-
         free(line_read);
         line_read = new_line_read;
     }
@@ -309,6 +312,7 @@ void parse_tokens(app_t *app)
  * @param args Pointer to the array of arguments.
  * @param args_length Pointer to the length of the args array.
  */
+
 void get_args(Token *token, char ***args, int *args_length)
 {
     Token *current = token;
@@ -328,7 +332,34 @@ void get_args(Token *token, char ***args, int *args_length)
         {
             break;
         }
-        (*args)[i] = current->value;
+
+        // Check if the token is an environment variable
+        if (current->value[0] == '$')
+        {
+            // Get the value of the environment variable
+            char *env_value = getenv(current->value + 1);
+            if (env_value == NULL)
+            {
+                printf("Undefined environment variable: %s\n", current->value);
+                return;
+            }
+
+            // Make a copy of the environment variable value
+            char *env_value_copy = malloc(strlen(env_value) + 1);
+            if (env_value_copy == NULL)
+            {
+                printf("Error allocating memory for environment variable value\n");
+                return;
+            }
+            strcpy(env_value_copy, env_value);
+
+            (*args)[i] = env_value_copy;
+        }
+        else
+        {
+            (*args)[i] = strdup(current->value);
+        }
+
         current = current->next;
         i++;
     }
@@ -413,7 +444,7 @@ void exec_handler(app_t *app)
             pid_t pid = fork();
             if (pid == 0) // fork a child process to handle the command execution
             {
-
+                signal(SIGINT, SIG_DFL);
                 if (in_fd != 0) // if not stdin, there's a pipe to read from
                 {
                     dup2(in_fd, STDIN_FILENO);
@@ -433,9 +464,6 @@ void exec_handler(app_t *app)
                         perror("execvp");
                         exit(EXIT_FAILURE);
                     }
-                }
-                else
-                {
                 }
             }
             else if (pid < 0)

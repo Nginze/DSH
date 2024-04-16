@@ -1,0 +1,5 @@
+PROMPT_THEME = "colored"
+PROMPT_SYM = ">"
+HISTORY_FILE = ".dshrc"
+HISTORY_SIZE = 200
+EDITOR = "nvim"
