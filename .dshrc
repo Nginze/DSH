@@ -1,6 +1,7 @@
-PROMPT_THEME = true 
-PROMPT_SYM = > 
-TAB_COMPLETION = true  # Whether to enable tab completion
-HISTORY_FILE = ".dshrc"
-HISTORY_SIZE = 200
-EDITOR = nvim
+PROMPT_THEME = false        # Whether to enable prompt theme
+PROMPT_SYM = $              # Prompt symbol
+TAB_COMPLETION = true       # Whether to enable tab completion
+HISTORY_FILE = .dsh_history # History file
+HISTORY_SIZE = 200          # History size
+EDITOR = code               # Default Editor
+

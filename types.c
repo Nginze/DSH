@@ -125,6 +125,12 @@ Command *new_command(command_t type, char **args, int args_length)
 
 void load_config(const char *filename, config_t *config)
 {
+    if (config == NULL)
+    {
+        printf("Config is NULL.\n");
+        return;
+    }
+
     FILE *file = fopen(filename, "r");
     if (file == NULL)
     {
@@ -136,7 +142,16 @@ void load_config(const char *filename, config_t *config)
     while (fgets(line, sizeof(line), file) != NULL)
     {
         char *key = strtok(line, " =\n");
+        if (key == NULL)
+        {
+            continue;
+        }
+
         char *value = strtok(NULL, " =\n");
+        if (value == NULL)
+        {
+            continue;
+        }
 
         if (strcmp(key, "PROMPT_THEME") == 0)
         {

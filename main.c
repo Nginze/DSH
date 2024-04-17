@@ -36,7 +36,7 @@ char *print_prompt(app_t *app);
 void read_input(app_t *app);
 void prep_args(char *input, char **args);
 void exec_handler(app_t *app);
-void get_args(Token *token, char ***args, int *args_length);
+void get_args(Token *token, char ***args, int *args_length, app_t *app);
 void print_commands(Command *command);
 void completion(const char *buf, linenoiseCompletions *lc);
 char *hints(const char *buf, int *color, int *bold);
@@ -64,10 +64,13 @@ int main(int argc, char const *argv[])
     // Set shell configurations
     load_config(RC_FILE, app->config);
     linenoiseSetMultiLine(1);
-    linenoiseSetCompletionCallback(completion);
-    linenoiseSetHintsCallback(hints);
-    linenoiseHistoryLoad(HISTORY_FILE);
-    linenoiseHistorySetMaxLen(MAX_HISTORY_SIZE);
+    if (app->config->tabCompletion)
+    {
+        linenoiseSetCompletionCallback(completion);
+        linenoiseSetHintsCallback(hints);
+    }
+    linenoiseHistoryLoad(app->config->historyFile != NULL ? app->config->historyFile : HISTORY_FILE);
+    linenoiseHistorySetMaxLen(app->config->historySize != 0 ? app->config->historySize : MAX_HISTORY_SIZE);
 
     // App Loop
     do
@@ -109,140 +112,6 @@ int main(int argc, char const *argv[])
  * @param app A pointer to the shell application structure.
  * @return A pointer to the generated prompt string.
  */
-// char *print_prompt(app_t *app)
-// {
-//     char *prompt = (char *)malloc(MAX_BUFFER_SIZE * sizeof(char));
-//     if (prompt == NULL)
-//     {
-//         perror("Error allocating memory for prompt");
-//         exit(EXIT_FAILURE);
-//     }
-
-//     getcwd(app->current_directory, app->current_directory_length);
-
-//     FILE *fp = popen("git rev-parse --abbrev-ref HEAD 2>/dev/null", "r");
-//     char git_branch[1024] = "";
-
-//     if (fp != NULL)
-//     {
-//         fgets(git_branch, sizeof(git_branch), fp);
-//         git_branch[strcspn(git_branch, "\n")] = 0; // remove trailing newline
-//         pclose(fp);
-//     }
-//     else
-//     {
-//         perror("popen failed");
-//         free(prompt); // Free the allocated memory before returning NULL
-//         return NULL;
-//     }
-
-//     if (app->has_init == false)
-//     {
-//         printf("Welcome to DSH (Dash Shell) - A minimal shell\n");
-//         printf("Type 'exit' to quit the shell\n");
-//         printf("Type 'help' for list of commands\n");
-//         printf("\n");
-//         app->has_init = true;
-//     }
-
-//     // Color escape sequences
-//     char *green = "\033[0;32m";
-//     char *blue = "\033[0;34m";
-//     char *reset = "\033[0m";
-
-//     if (strlen(git_branch) > 0)
-//     {
-//         if (app->config->promptTheme)
-//         {
-//             snprintf(prompt, MAX_BUFFER_SIZE, "%s%s%s (git:%s%s%s) > ", green, basename(app->current_directory), reset, blue, git_branch, reset);
-//         }
-//         else
-//         {
-//             snprintf(prompt, MAX_BUFFER_SIZE, "%s (git:%s) > ", basename(app->current_directory), git_branch);
-//         }
-//     }
-//     else
-//     {
-//         if (app->config->promptTheme)
-//         {
-//             snprintf(prompt, MAX_BUFFER_SIZE, "%s%s%s > ", green, basename(app->current_directory), reset);
-//         }
-//         else
-//         {
-//             snprintf(prompt, MAX_BUFFER_SIZE, "%s > ", basename(app->current_directory));
-//         }
-//     }
-
-//     return prompt;
-// }
-
-// char *print_prompt(app_t *app)
-// {
-//     char *prompt = (char *)malloc(MAX_BUFFER_SIZE * sizeof(char));
-//     if (prompt == NULL)
-//     {
-//         perror("Error allocating memory for prompt");
-//         exit(EXIT_FAILURE);
-//     }
-
-//     getcwd(app->current_directory, app->current_directory_length);
-
-//     FILE *fp = popen("git rev-parse --abbrev-ref HEAD 2>/dev/null", "r");
-//     char git_branch[1024] = "";
-
-//     if (fp != NULL)
-//     {
-//         fgets(git_branch, sizeof(git_branch), fp);
-//         git_branch[strcspn(git_branch, "\n")] = 0; // remove trailing newline
-//         pclose(fp);
-//     }
-//     else
-//     {
-//         perror("popen failed");
-//         free(prompt); // Free the allocated memory before returning NULL
-//         return NULL;
-//     }
-
-//     if (app->has_init == false)
-//     {
-//         printf("Welcome to DSH (Dash Shell) - A minimal shell\n");
-//         printf("Type 'exit' to quit the shell\n");
-//         printf("Type 'help' for list of commands\n");
-//         printf("\n");
-//         app->has_init = true;
-//     }
-
-//     // Color escape sequences
-//     char *green = "\033[0;32m";
-//     char *blue = "\033[0;34m";
-//     char *reset = "\033[0m";
-
-//     if (strlen(git_branch) > 0)
-//     {
-//         if (app->config->promptTheme)
-//         {
-//             snprintf(prompt, MAX_BUFFER_SIZE, "%s%s%s %s (git:%s%s%s) %s ", green, basename(app->current_directory), reset, app->config->promptSym, blue, git_branch, reset, app->config->promptSym);
-//         }
-//         else
-//         {
-//             snprintf(prompt, MAX_BUFFER_SIZE, "%s %s (git:%s) %s ", basename(app->current_directory), app->config->promptSym, git_branch, app->config->promptSym);
-//         }
-//     }
-//     else
-//     {
-//         if (app->config->promptTheme)
-//         {
-//             snprintf(prompt, MAX_BUFFER_SIZE, "%s%s%s %s ", green, basename(app->current_directory), reset, app->config->promptSym);
-//         }
-//         else
-//         {
-//             snprintf(prompt, MAX_BUFFER_SIZE, "%s %s ", basename(app->current_directory), app->config->promptSym);
-//         }
-//     }
-
-//     return prompt;
-// }
-
 char *print_prompt(app_t *app)
 {
     char *prompt = (char *)malloc(MAX_BUFFER_SIZE * sizeof(char));
@@ -328,7 +197,7 @@ void read_input(app_t *app)
     if (*line_read)
     {
         linenoiseHistoryAdd(line_read);
-        linenoiseHistorySave(HISTORY_FILE);
+        linenoiseHistorySave(app->config->historyFile ? app->config->historyFile : HISTORY_FILE);
     }
 
     // handle tilde expansion
@@ -408,7 +277,7 @@ void parse_tokens(app_t *app)
         }
         else
         {
-            get_args(token_list, &args, &args_length);
+            get_args(token_list, &args, &args_length, app);
             last_command->next = app->app_buffer->command_list[i] = new_command(SIMPLE, args, args_length);
         }
 
@@ -438,7 +307,7 @@ void parse_tokens(app_t *app)
  * @param args_length Pointer to the length of the args array.
  */
 
-void get_args(Token *token, char ***args, int *args_length)
+void get_args(Token *token, char ***args, int *args_length, app_t *app)
 {
     Token *current = token;
     int i = 0;
@@ -458,8 +327,31 @@ void get_args(Token *token, char ***args, int *args_length)
             break;
         }
 
+        if (strcmp(current->value, "Editor") == 0)
+        {
+            // Replace "Editor" with the value of config->editor
+            char *editor_value = app->config->editor;
+            if (editor_value == NULL)
+            {
+                printf("Editor is not set in the configuration\n");
+                return;
+            }
+
+            // Make a copy of the editor value
+            char *editor_value_copy = malloc(strlen(editor_value) + 1);
+            if (editor_value_copy == NULL)
+            {
+                printf("Error allocating memory for editor value\n");
+                return;
+            }
+            strcpy(editor_value_copy, editor_value);
+
+            (*args)[i] = editor_value_copy;
+
+            printf("Editor value: %s\n", editor_value_copy);
+        }
         // Check if the token is an environment variable
-        if (current->value[0] == '$')
+        else if (current->value[0] == '$')
         {
             // Get the value of the environment variable
             char *env_value = getenv(current->value + 1);
