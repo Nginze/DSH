@@ -1,4 +1,5 @@
 PROMPT_THEME = false        # Whether to enable prompt theme
+PROMPT_USER = true          # Whether to show user in prompt
 PROMPT_SYM = $              # Prompt symbol
 TAB_COMPLETION = true       # Whether to enable tab completion
 HISTORY_FILE = .dsh_history # History file

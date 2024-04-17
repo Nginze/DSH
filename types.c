@@ -1,5 +1,5 @@
 /***************************************************************************/ /**
-   @file         utils.h
+   @file         types.c
    @author       Jonathan Kuug & Abdul Wahab Abass
    @date         April 2024
    @brief        DSH (Dash Shell - Minimal Shell)

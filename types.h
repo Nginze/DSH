@@ -1,7 +1,7 @@
 #pragma once
 
 /***************************************************************************/ /**
-   @file         utils.h
+   @file         types.h
    @author       Jonathan Kuug & Abdul Wahab Abass
    @date         April 2024
    @brief        DSH (Dash Shell - Minimal Shell)

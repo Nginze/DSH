@@ -125,6 +125,7 @@ void tokenize(char *input, Token **args)
 
     *args = head;
 }
+
 /**
  * Prints the values of each token in a linked list.
  *

@@ -457,9 +457,97 @@ void print_history()
     fclose(file);
 }
 
+// void exec_handler(app_t *app)
+// {
+
+//     Command *current_command = app->app_buffer->command_list[0];
+
+//     if (current_command == NULL || current_command->args[0] == NULL)
+//     {
+//         return;
+//     }
+//     else if (strcmp(current_command->args[0], "cd") == 0)
+//     {
+//         change_dir(current_command->args[1]);
+//     }
+//     else if (strcmp(current_command->args[0], "exit") == 0)
+//     {
+//         exit(0);
+//     }
+//     else if (strcmp(current_command->args[0], "help") == 0)
+//     {
+//         print_help();
+//     }
+//     else if (strcmp(current_command->args[0], "history") == 0)
+//     {
+//         print_history();
+//     }
+//     else
+//     {
+//         int pipefd[2];
+//         int in_fd = 0; // input file descriptor, start with stdin
+
+//         while (current_command != NULL)
+//         {
+//             if (current_command->next && current_command->next->type == PIPE)
+//             {
+//                 if (pipe(pipefd) == -1)
+//                 {
+//                     perror("pipe");
+//                     exit(EXIT_FAILURE);
+//                 }
+//             }
+
+//             pid_t pid = fork();
+//             if (pid == 0) // fork a child process to handle the command execution
+//             {
+//                 signal(SIGINT, SIG_DFL);
+//                 if (in_fd != 0) // if not stdin, there's a pipe to read from
+//                 {
+//                     dup2(in_fd, STDIN_FILENO);
+//                     close(in_fd);
+//                 }
+
+//                 if (current_command->next && current_command->next->type == PIPE)
+//                 {
+//                     dup2(pipefd[1], STDOUT_FILENO);
+//                     close(pipefd[1]);
+//                 }
+
+//                 if (current_command->args[0] != NULL && current_command->args != NULL)
+//                 {
+//                     if (execvp(current_command->args[0], current_command->args) == -1)
+//                     {
+//                         perror("execvp");
+//                         exit(EXIT_FAILURE);
+//                     }
+//                 }
+//             }
+//             else if (pid < 0)
+//             {
+//                 perror("Error forking process");
+//                 exit(EXIT_FAILURE);
+//             }
+//             else
+//             {
+//                 wait(NULL);
+
+//                 if (in_fd != 0)
+//                     close(in_fd);
+
+//                 if (current_command->next && current_command->next->type == PIPE)
+//                 {
+//                     close(pipefd[1]);
+//                     in_fd = pipefd[0];
+//                 }
+
+//                 current_command = current_command->next ? current_command->next->next : NULL;
+//             }
+//         }
+//     }
+// }
 void exec_handler(app_t *app)
 {
-
     Command *current_command = app->app_buffer->command_list[0];
 
     if (current_command == NULL || current_command->args[0] == NULL)
@@ -486,9 +574,12 @@ void exec_handler(app_t *app)
     {
         int pipefd[2];
         int in_fd = 0; // input file descriptor, start with stdin
+        int out_fd;    // output file descriptor
 
         while (current_command != NULL)
         {
+            out_fd = STDOUT_FILENO; // reset out_fd to stdout for each command
+
             if (current_command->next && current_command->next->type == PIPE)
             {
                 if (pipe(pipefd) == -1)
@@ -496,22 +587,44 @@ void exec_handler(app_t *app)
                     perror("pipe");
                     exit(EXIT_FAILURE);
                 }
+                out_fd = pipefd[1]; // set out_fd to write end of the pipe
             }
 
             pid_t pid = fork();
             if (pid == 0) // fork a child process to handle the command execution
             {
                 signal(SIGINT, SIG_DFL);
-                if (in_fd != 0) // if not stdin, there's a pipe to read from
+
+                if (current_command->next && current_command->next->type == REDIRECT_OUT)
+                {
+                    out_fd = open(current_command->next->next->args[0], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                    if (out_fd == -1)
+                    {
+                        perror("open");
+                        exit(EXIT_FAILURE);
+                    }
+                }
+
+                if (current_command->next && current_command->next->type == REDIRECT_IN)
+                {
+                    in_fd = open(current_command->next->next->args[0], O_RDONLY);
+                    if (in_fd == -1)
+                    {
+                        perror("open");
+                        exit(EXIT_FAILURE);
+                    }
+                }
+
+                if (in_fd != STDIN_FILENO)
                 {
                     dup2(in_fd, STDIN_FILENO);
                     close(in_fd);
                 }
 
-                if (current_command->next && current_command->next->type == PIPE)
+                if (out_fd != STDOUT_FILENO)
                 {
-                    dup2(pipefd[1], STDOUT_FILENO);
-                    close(pipefd[1]);
+                    dup2(out_fd, STDOUT_FILENO);
+                    close(out_fd);
                 }
 
                 if (current_command->args[0] != NULL && current_command->args != NULL)
@@ -537,8 +650,8 @@ void exec_handler(app_t *app)
 
                 if (current_command->next && current_command->next->type == PIPE)
                 {
-                    close(pipefd[1]);
-                    in_fd = pipefd[0];
+                    close(pipefd[1]);  // close write end of the pipe in the parent process
+                    in_fd = pipefd[0]; // set in_fd to read end of the pipe for the next command
                 }
 
                 current_command = current_command->next ? current_command->next->next : NULL;
