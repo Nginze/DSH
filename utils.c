@@ -32,29 +32,87 @@ Token *new_token(char *value)
  * @param args  A pointer to a Token pointer, which will be updated to point to the head of the linked list of tokens.
  */
 
+// void tokenize(char *input, Token **args)
+// {
+
+//     if (input == NULL)
+//     {
+//         return;
+//     }
+
+//     const char *delimiters = " \t\r\n\a";
+//     char *token_value = strtok(input, delimiters);
+
+//     if (token_value == NULL)
+//     {
+//         return;
+//     }
+
+//     Token *head = new_token(token_value);
+//     Token *current = head;
+
+//     while ((token_value = strtok(NULL, delimiters)) != NULL)
+//     {
+//         current->next = new_token(token_value);
+//         current = current->next;
+//     }
+
+//     *args = head;
+// }
+
 void tokenize(char *input, Token **args)
 {
-
     if (input == NULL)
     {
         return;
     }
 
-    const char *delimiters = " \t\r\n\a";
-    char *token_value = strtok(input, delimiters);
+    char *token_value;
+    Token *head = NULL;
+    Token *current = NULL;
 
-    if (token_value == NULL)
+    char *start_ptr = input;
+    char *end_ptr = input;
+
+    while (*end_ptr != '\0')
     {
-        return;
-    }
+        if (*start_ptr == '"')
+        {
+            end_ptr = strchr(start_ptr + 1, '"');
+            if (end_ptr != NULL)
+            {
+                *end_ptr = '\0';
+                token_value = start_ptr + 1;
+                end_ptr++;
+            }
+        }
+        else
+        {
+            end_ptr = strpbrk(start_ptr, " \t\r\n\a");
+            if (end_ptr != NULL)
+            {
+                *end_ptr = '\0';
+                token_value = start_ptr;
+                end_ptr++;
+            }
+            else
+            {
+                token_value = start_ptr;
+            }
+        }
 
-    Token *head = new_token(token_value);
-    Token *current = head;
+        if (head == NULL)
+        {
+            head = new_token(token_value);
+            current = head;
+        }
+        else
+        {
+            current->next = new_token(token_value);
+            current = current->next;
+        }
 
-    while ((token_value = strtok(NULL, delimiters)) != NULL)
-    {
-        current->next = new_token(token_value);
-        current = current->next;
+        start_ptr = end_ptr;
     }
 
     *args = head;

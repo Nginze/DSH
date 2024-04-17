@@ -3,5 +3,5 @@ PROMPT_SYM = $              # Prompt symbol
 TAB_COMPLETION = true       # Whether to enable tab completion
 HISTORY_FILE = .dsh_history # History file
 HISTORY_SIZE = 200          # History size
-EDITOR = code               # Default Editor
+EDITOR = nvim               # Default Editor
 
