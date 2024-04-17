@@ -1,5 +1,6 @@
-PROMPT_THEME = "colored"
-PROMPT_SYM = ">"
+PROMPT_THEME = true 
+PROMPT_SYM = > 
+TAB_COMPLETION = true  # Whether to enable tab completion
 HISTORY_FILE = ".dshrc"
 HISTORY_SIZE = 200
-EDITOR = "nvim"
+EDITOR = nvim

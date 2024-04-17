@@ -50,6 +50,8 @@ void free_commands(Command **command);
 
 // Built-in commands (No system binaries)
 void change_dir(char *path);
+void print_help();
+void print_history();
 
 int main(int argc, char const *argv[])
 {
@@ -96,7 +98,8 @@ int main(int argc, char const *argv[])
     free_app(app);
 }
 
-/**
+/** *
+ *
  * @brief Generates a prompt string for a shell application.
  *
  * This function generates a prompt string based on the current directory and the current Git branch (if available).
@@ -106,6 +109,140 @@ int main(int argc, char const *argv[])
  * @param app A pointer to the shell application structure.
  * @return A pointer to the generated prompt string.
  */
+// char *print_prompt(app_t *app)
+// {
+//     char *prompt = (char *)malloc(MAX_BUFFER_SIZE * sizeof(char));
+//     if (prompt == NULL)
+//     {
+//         perror("Error allocating memory for prompt");
+//         exit(EXIT_FAILURE);
+//     }
+
+//     getcwd(app->current_directory, app->current_directory_length);
+
+//     FILE *fp = popen("git rev-parse --abbrev-ref HEAD 2>/dev/null", "r");
+//     char git_branch[1024] = "";
+
+//     if (fp != NULL)
+//     {
+//         fgets(git_branch, sizeof(git_branch), fp);
+//         git_branch[strcspn(git_branch, "\n")] = 0; // remove trailing newline
+//         pclose(fp);
+//     }
+//     else
+//     {
+//         perror("popen failed");
+//         free(prompt); // Free the allocated memory before returning NULL
+//         return NULL;
+//     }
+
+//     if (app->has_init == false)
+//     {
+//         printf("Welcome to DSH (Dash Shell) - A minimal shell\n");
+//         printf("Type 'exit' to quit the shell\n");
+//         printf("Type 'help' for list of commands\n");
+//         printf("\n");
+//         app->has_init = true;
+//     }
+
+//     // Color escape sequences
+//     char *green = "\033[0;32m";
+//     char *blue = "\033[0;34m";
+//     char *reset = "\033[0m";
+
+//     if (strlen(git_branch) > 0)
+//     {
+//         if (app->config->promptTheme)
+//         {
+//             snprintf(prompt, MAX_BUFFER_SIZE, "%s%s%s (git:%s%s%s) > ", green, basename(app->current_directory), reset, blue, git_branch, reset);
+//         }
+//         else
+//         {
+//             snprintf(prompt, MAX_BUFFER_SIZE, "%s (git:%s) > ", basename(app->current_directory), git_branch);
+//         }
+//     }
+//     else
+//     {
+//         if (app->config->promptTheme)
+//         {
+//             snprintf(prompt, MAX_BUFFER_SIZE, "%s%s%s > ", green, basename(app->current_directory), reset);
+//         }
+//         else
+//         {
+//             snprintf(prompt, MAX_BUFFER_SIZE, "%s > ", basename(app->current_directory));
+//         }
+//     }
+
+//     return prompt;
+// }
+
+// char *print_prompt(app_t *app)
+// {
+//     char *prompt = (char *)malloc(MAX_BUFFER_SIZE * sizeof(char));
+//     if (prompt == NULL)
+//     {
+//         perror("Error allocating memory for prompt");
+//         exit(EXIT_FAILURE);
+//     }
+
+//     getcwd(app->current_directory, app->current_directory_length);
+
+//     FILE *fp = popen("git rev-parse --abbrev-ref HEAD 2>/dev/null", "r");
+//     char git_branch[1024] = "";
+
+//     if (fp != NULL)
+//     {
+//         fgets(git_branch, sizeof(git_branch), fp);
+//         git_branch[strcspn(git_branch, "\n")] = 0; // remove trailing newline
+//         pclose(fp);
+//     }
+//     else
+//     {
+//         perror("popen failed");
+//         free(prompt); // Free the allocated memory before returning NULL
+//         return NULL;
+//     }
+
+//     if (app->has_init == false)
+//     {
+//         printf("Welcome to DSH (Dash Shell) - A minimal shell\n");
+//         printf("Type 'exit' to quit the shell\n");
+//         printf("Type 'help' for list of commands\n");
+//         printf("\n");
+//         app->has_init = true;
+//     }
+
+//     // Color escape sequences
+//     char *green = "\033[0;32m";
+//     char *blue = "\033[0;34m";
+//     char *reset = "\033[0m";
+
+//     if (strlen(git_branch) > 0)
+//     {
+//         if (app->config->promptTheme)
+//         {
+//             snprintf(prompt, MAX_BUFFER_SIZE, "%s%s%s %s (git:%s%s%s) %s ", green, basename(app->current_directory), reset, app->config->promptSym, blue, git_branch, reset, app->config->promptSym);
+//         }
+//         else
+//         {
+//             snprintf(prompt, MAX_BUFFER_SIZE, "%s %s (git:%s) %s ", basename(app->current_directory), app->config->promptSym, git_branch, app->config->promptSym);
+//         }
+//     }
+//     else
+//     {
+//         if (app->config->promptTheme)
+//         {
+//             snprintf(prompt, MAX_BUFFER_SIZE, "%s%s%s %s ", green, basename(app->current_directory), reset, app->config->promptSym);
+//         }
+//         else
+//         {
+//             snprintf(prompt, MAX_BUFFER_SIZE, "%s %s ", basename(app->current_directory), app->config->promptSym);
+//         }
+//     }
+
+//     return prompt;
+// }
+
 char *print_prompt(app_t *app)
 {
     char *prompt = (char *)malloc(MAX_BUFFER_SIZE * sizeof(char));
@@ -147,27 +284,26 @@ char *print_prompt(app_t *app)
     char *blue = "\033[0;34m";
     char *reset = "\033[0m";
 
-    // Set color based on the prompt theme
     if (strlen(git_branch) > 0)
     {
-        if (strcmp(app->config->promptTheme, "colored") == 0)
+        if (app->config->promptTheme)
         {
-            snprintf(prompt, MAX_BUFFER_SIZE, "%s%s%s (git:%s%s%s) > ", green, basename(app->current_directory), reset, blue, git_branch, reset);
+            snprintf(prompt, MAX_BUFFER_SIZE, "%s%s%s (git:%s%s%s)%s ", green, basename(app->current_directory), reset, blue, git_branch, reset, app->config->promptSym);
         }
         else
         {
-            snprintf(prompt, MAX_BUFFER_SIZE, "%s (git:%s) > ", basename(app->current_directory), git_branch);
+            snprintf(prompt, MAX_BUFFER_SIZE, "%s (git:%s)%s ", basename(app->current_directory), git_branch, app->config->promptSym);
         }
     }
     else
     {
-        if (strcmp(app->config->promptTheme, "colored") == 0)
+        if (app->config->promptTheme)
         {
-            snprintf(prompt, MAX_BUFFER_SIZE, "%s%s%s > ", green, basename(app->current_directory), reset);
+            snprintf(prompt, MAX_BUFFER_SIZE, "%s%s%s ", green, basename(app->current_directory), reset);
         }
         else
         {
-            snprintf(prompt, MAX_BUFFER_SIZE, "%s > ", basename(app->current_directory));
+            snprintf(prompt, MAX_BUFFER_SIZE, "%s ", basename(app->current_directory));
         }
     }
 
@@ -385,12 +521,48 @@ void prep_args(char *input, char **args)
     args[i] = NULL;
 }
 
+/**
+ * Changes the current working directory to the specified path.
+ *
+ * @param path The path of the directory to change to.
+ */
 void change_dir(char *path)
 {
     if (chdir(path) != 0)
     {
         perror("Error changing directory");
     }
+}
+
+/**
+ * Prints the help information for the shell program.
+ */
+void print_help()
+{
+    printf("DSH (Dash Shell) - A minimal shell\n");
+    printf("Commands:\n");
+    printf("cd <directory> - Change the current working directory\n");
+    printf("exit - Exit the shell\n");
+    printf("help - Display this help information\n");
+    printf("\n");
+}
+
+void print_history()
+{
+    FILE *file = fopen(HISTORY_FILE, "r");
+    if (file == NULL)
+    {
+        perror("Error opening HISTORY file");
+        return;
+    }
+
+    char line[256];
+    while (fgets(line, sizeof(line), file))
+    {
+        printf("%s", line);
+    }
+
+    fclose(file);
 }
 
 void exec_handler(app_t *app)
@@ -408,11 +580,15 @@ void exec_handler(app_t *app)
     }
     else if (strcmp(current_command->args[0], "exit") == 0)
     {
-        // free_command(app->app_buffer->command_list[0]);
-        // free_token(app->app_buffer->token_list);
-        // free_buffer(app->app_buffer);
-        // free_app(app);
         exit(0);
+    }
+    else if (strcmp(current_command->args[0], "help") == 0)
+    {
+        print_help();
+    }
+    else if (strcmp(current_command->args[0], "history") == 0)
+    {
+        print_history();
     }
     else
     {
@@ -666,7 +842,9 @@ void print_config(config_t *config)
         return;
     }
 
-    printf("Prompt Theme: %s\n", config->promptTheme ? config->promptTheme : "NULL");
+    printf("Prompt Theme: %s\n", config->promptTheme ? "true" : "false");
+    printf("Tab Completion: %s\n", config->tabCompletion ? "true" : "false");
+    printf("Prompt Symbol: %s\n", config->promptSym ? config->promptSym : "NULL");
     printf("History File: %s\n", config->historyFile ? config->historyFile : "NULL");
     printf("History Size: %d\n", config->historySize);
     printf("Editor: %s\n", config->editor ? config->editor : "NULL");

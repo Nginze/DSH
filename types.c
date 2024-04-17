@@ -81,7 +81,9 @@ config_t *init_config()
     }
 
     // Initialize the members of the config object here
-    config->promptTheme = NULL;
+    config->promptTheme = false;
+    config->promptSym = NULL;
+    config->tabCompletion = false;
     config->historyFile = NULL;
     config->historySize = 0;
     config->editor = NULL;
@@ -120,6 +122,7 @@ Command *new_command(command_t type, char **args, int args_length)
  * @param filename The name of the configuration file.
  * @param config   A pointer to the config_t structure to populate.
  */
+
 void load_config(const char *filename, config_t *config)
 {
     FILE *file = fopen(filename, "r");
@@ -137,7 +140,15 @@ void load_config(const char *filename, config_t *config)
 
         if (strcmp(key, "PROMPT_THEME") == 0)
         {
-            config->promptTheme = strdup(value);
+            config->promptTheme = strcmp(value, "true") == 0;
+        }
+        else if (strcmp(key, "TAB_COMPLETION") == 0)
+        {
+            config->tabCompletion = strcmp(value, "true") == 0;
+        }
+        else if (strcmp(key, "PROMPT_SYM") == 0)
+        {
+            config->promptSym = strdup(value);
         }
         else if (strcmp(key, "HISTORY_FILE") == 0)
         {

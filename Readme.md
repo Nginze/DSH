@@ -2,6 +2,8 @@
 
 This project is a minimal shell application for Linux. It aims to provide a lightweight, customizable shell with a focus on common features and usability.
 
+`DEMO LINK`: https://youtu.be/cMzk_AslZ5M
+
 ## Features
 
 ### Command Execution

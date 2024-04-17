@@ -20,7 +20,9 @@
  */
 typedef struct Config
 {
-    char *promptTheme; /**< The theme for the shell prompt. */
+    bool promptTheme; /**< The theme for the shell prompt. */
+    bool tabCompletion; /**< The theme for the shell prompt. */ 
+    char *promptSym;    /**< The theme for the shell prompt. */
     char *historyFile; /**< The file to store command history. */
     int historySize;   /**< The maximum number of commands to store in history. */
     char *editor;      /**< The default text editor for the shell. */
