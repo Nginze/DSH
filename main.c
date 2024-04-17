@@ -112,6 +112,66 @@ int main(int argc, char const *argv[])
  * @param app A pointer to the shell application structure.
  * @return A pointer to the generated prompt string.
  */
+// char *print_prompt(app_t *app)
+// {
+//     char *prompt = (char *)malloc(MAX_BUFFER_SIZE * sizeof(char));
+//     if (prompt == NULL)
+//     {
+//         perror("Error allocating memory for prompt");
+//         exit(EXIT_FAILURE);
+//     }
+
+//     getcwd(app->current_directory, app->current_directory_length);
+
+//     FILE *fp = popen("git rev-parse --abbrev-ref HEAD 2>/dev/null", "r");
+//     char git_branch[1024] = "";
+
+//     if (fp != NULL)
+//     {
+//         fgets(git_branch, sizeof(git_branch), fp);
+//         git_branch[strcspn(git_branch, "\n")] = 0; // remove trailing newline
+//         pclose(fp);
+//     }
+//     else
+//     {
+//         perror("popen failed");
+//         free(prompt); // Free the allocated memory before returning NULL
+//         return NULL;
+//     }
+
+//     // Color escape sequences
+//     char *green = "\033[0;32m";
+//     char *blue = "\033[0;34m";
+//     char *reset = "\033[0m";
+
+//     // Add user to prompt if promptUser is true
+//     char *user = app->config->promptUser ? getlogin() : "";
+
+//     if (strlen(git_branch) > 0)
+//     {
+//         if (app->config->promptTheme)
+//         {
+//             snprintf(prompt, MAX_BUFFER_SIZE, "%s%s@%s%s (git:%s%s%s)%s ", green, user, basename(app->current_directory), reset, blue, git_branch, reset, app->config->promptSym);
+//         }
+//         else
+//         {
+//             snprintf(prompt, MAX_BUFFER_SIZE, "%s@%s (git:%s)%s ", user, basename(app->current_directory), git_branch, app->config->promptSym);
+//         }
+//     }
+//     else
+//     {
+//         if (app->config->promptTheme)
+//         {
+//             snprintf(prompt, MAX_BUFFER_SIZE, "%s%s@%s%s ", green, user, basename(app->current_directory), reset);
+//         }
+//         else
+//         {
+//             snprintf(prompt, MAX_BUFFER_SIZE, "%s@%s ", user, basename(app->current_directory));
+//         }
+//     }
+
+//     return prompt;
+// }
 char *print_prompt(app_t *app)
 {
     char *prompt = (char *)malloc(MAX_BUFFER_SIZE * sizeof(char));
@@ -139,40 +199,37 @@ char *print_prompt(app_t *app)
         return NULL;
     }
 
-    if (app->has_init == false)
-    {
-        printf("Welcome to DSH (Dash Shell) - A minimal shell\n");
-        printf("Type 'exit' to quit the shell\n");
-        printf("Type 'help' for list of commands\n");
-        printf("\n");
-        app->has_init = true;
-    }
-
     // Color escape sequences
     char *green = "\033[0;32m";
     char *blue = "\033[0;34m";
     char *reset = "\033[0m";
 
+    // Add user to prompt if promptUser is true
+    char *user = app->config->promptUser ? getlogin() : "";
+
+    // Include "@" symbol only if a user name is available
+    char *at = (app->config->promptUser && user && *user) ? "@" : "";
+
     if (strlen(git_branch) > 0)
     {
         if (app->config->promptTheme)
         {
-            snprintf(prompt, MAX_BUFFER_SIZE, "%s%s%s (git:%s%s%s)%s ", green, basename(app->current_directory), reset, blue, git_branch, reset, app->config->promptSym);
+            snprintf(prompt, MAX_BUFFER_SIZE, "%s%s%s%s%s (git:%s%s%s)%s ", green, user, at, basename(app->current_directory), reset, blue, git_branch, reset, app->config->promptSym);
         }
         else
         {
-            snprintf(prompt, MAX_BUFFER_SIZE, "%s (git:%s)%s ", basename(app->current_directory), git_branch, app->config->promptSym);
+            snprintf(prompt, MAX_BUFFER_SIZE, "%s%s%s (git:%s)%s ", user, at, basename(app->current_directory), git_branch, app->config->promptSym);
         }
     }
     else
     {
         if (app->config->promptTheme)
         {
-            snprintf(prompt, MAX_BUFFER_SIZE, "%s%s%s ", green, basename(app->current_directory), reset);
+            snprintf(prompt, MAX_BUFFER_SIZE, "%s%s%s%s%s ", green, user, at, basename(app->current_directory), reset);
         }
         else
         {
-            snprintf(prompt, MAX_BUFFER_SIZE, "%s ", basename(app->current_directory));
+            snprintf(prompt, MAX_BUFFER_SIZE, "%s%s%s ", user, at, basename(app->current_directory));
         }
     }
 
@@ -431,11 +488,30 @@ void change_dir(char *path)
  */
 void print_help()
 {
-    printf("DSH (Dash Shell) - A minimal shell\n");
-    printf("Commands:\n");
-    printf("cd <directory> - Change the current working directory\n");
-    printf("exit - Exit the shell\n");
+    printf("DSH (Dash Shell) - A minimal shell\n\n");
+    printf("Built-in Commands:\n");
+    printf("cd <directory> - Change the current working directory to <directory>\n");
+    printf("exit - Terminate the shell process\n");
     printf("help - Display this help information\n");
+    printf("history - Display the command history\n");
+    printf("\n");
+
+    printf("Redirection and Piping:\n");
+    printf("<command> > <file> - Redirect the output of <command> to <file>\n");
+    printf("<command> >> <file> - Append the output of <command> to <file>\n");
+    printf("<command> < <file> - Use <file> as the input to <command>\n");
+    printf("<command> 2> <file> - Redirect the error output of <command> to <file>\n");
+    printf("<command1> | <command2> - Pipe the output of <command1> to the input of <command2>\n");
+    printf("\n");
+
+    printf("Background Execution:\n");
+    printf("<command> & - Execute <command> in the background\n");
+    printf("\n");
+
+    printf("RC System:\n");
+    printf("DSH reads a startup file (~/.dshrc) that can contain any shell commands.\n");
+    printf("These commands are executed when the shell starts.\n");
+    printf("This can be used to set environment variables, define aliases, and more.\n");
     printf("\n");
 }
 
@@ -457,209 +533,20 @@ void print_history()
     fclose(file);
 }
 
-// void exec_handler(app_t *app)
-// {
-
-//     Command *current_command = app->app_buffer->command_list[0];
-
-//     if (current_command == NULL || current_command->args[0] == NULL)
-//     {
-//         return;
-//     }
-//     else if (strcmp(current_command->args[0], "cd") == 0)
-//     {
-//         change_dir(current_command->args[1]);
-//     }
-//     else if (strcmp(current_command->args[0], "exit") == 0)
-//     {
-//         exit(0);
-//     }
-//     else if (strcmp(current_command->args[0], "help") == 0)
-//     {
-//         print_help();
-//     }
-//     else if (strcmp(current_command->args[0], "history") == 0)
-//     {
-//         print_history();
-//     }
-//     else
-//     {
-//         int pipefd[2];
-//         int in_fd = 0; // input file descriptor, start with stdin
-
-//         while (current_command != NULL)
-//         {
-//             if (current_command->next && current_command->next->type == PIPE)
-//             {
-//                 if (pipe(pipefd) == -1)
-//                 {
-//                     perror("pipe");
-//                     exit(EXIT_FAILURE);
-//                 }
-//             }
-
-//             pid_t pid = fork();
-//             if (pid == 0) // fork a child process to handle the command execution
-//             {
-//                 signal(SIGINT, SIG_DFL);
-//                 if (in_fd != 0) // if not stdin, there's a pipe to read from
-//                 {
-//                     dup2(in_fd, STDIN_FILENO);
-//                     close(in_fd);
-//                 }
-
-//                 if (current_command->next && current_command->next->type == PIPE)
-//                 {
-//                     dup2(pipefd[1], STDOUT_FILENO);
-//                     close(pipefd[1]);
-//                 }
-
-//                 if (current_command->args[0] != NULL && current_command->args != NULL)
-//                 {
-//                     if (execvp(current_command->args[0], current_command->args) == -1)
-//                     {
-//                         perror("execvp");
-//                         exit(EXIT_FAILURE);
-//                     }
-//                 }
-//             }
-//             else if (pid < 0)
-//             {
-//                 perror("Error forking process");
-//                 exit(EXIT_FAILURE);
-//             }
-//             else
-//             {
-//                 wait(NULL);
-
-//                 if (in_fd != 0)
-//                     close(in_fd);
-
-//                 if (current_command->next && current_command->next->type == PIPE)
-//                 {
-//                     close(pipefd[1]);
-//                     in_fd = pipefd[0];
-//                 }
-
-//                 current_command = current_command->next ? current_command->next->next : NULL;
-//             }
-//         }
-//     }
-// }
-// void exec_handler(app_t *app)
-// {
-//     Command *current_command = app->app_buffer->command_list[0];
-
-//     if (current_command == NULL || current_command->args[0] == NULL)
-//     {
-//         return;
-//     }
-//     else if (strcmp(current_command->args[0], "cd") == 0)
-//     {
-//         change_dir(current_command->args[1]);
-//     }
-//     else if (strcmp(current_command->args[0], "exit") == 0)
-//     {
-//         exit(0);
-//     }
-//     else if (strcmp(current_command->args[0], "help") == 0)
-//     {
-//         print_help();
-//     }
-//     else if (strcmp(current_command->args[0], "history") == 0)
-//     {
-//         print_history();
-//     }
-//     else
-//     {
-//         int pipefd[2];
-//         int in_fd = 0; // input file descriptor, start with stdin
-//         int out_fd;    // output file descriptor
-
-//         while (current_command != NULL)
-//         {
-//             out_fd = STDOUT_FILENO; // reset out_fd to stdout for each command
-
-//             if (current_command->next && current_command->next->type == PIPE)
-//             {
-//                 if (pipe(pipefd) == -1)
-//                 {
-//                     perror("pipe");
-//                     exit(EXIT_FAILURE);
-//                 }
-//                 out_fd = pipefd[1]; // set out_fd to write end of the pipe
-//             }
-
-//             pid_t pid = fork();
-//             if (pid == 0) // fork a child process to handle the command execution
-//             {
-//                 signal(SIGINT, SIG_DFL);
-
-//                 if (current_command->next && current_command->next->type == REDIRECT_OUT)
-//                 {
-//                     out_fd = open(current_command->next->next->args[0], O_WRONLY | O_CREAT | O_TRUNC, 0644);
-//                     if (out_fd == -1)
-//                     {
-//                         perror("open");
-//                         exit(EXIT_FAILURE);
-//                     }
-//                 }
-
-//                 if (current_command->next && current_command->next->type == REDIRECT_IN)
-//                 {
-//                     in_fd = open(current_command->next->next->args[0], O_RDONLY);
-//                     if (in_fd == -1)
-//                     {
-//                         perror("open");
-//                         exit(EXIT_FAILURE);
-//                     }
-//                 }
-
-//                 if (in_fd != STDIN_FILENO)
-//                 {
-//                     dup2(in_fd, STDIN_FILENO);
-//                     close(in_fd);
-//                 }
-
-//                 if (out_fd != STDOUT_FILENO)
-//                 {
-//                     dup2(out_fd, STDOUT_FILENO);
-//                     close(out_fd);
-//                 }
-
-//                 if (current_command->args[0] != NULL && current_command->args != NULL)
-//                 {
-//                     if (execvp(current_command->args[0], current_command->args) == -1)
-//                     {
-//                         perror("execvp");
-//                         exit(EXIT_FAILURE);
-//                     }
-//                 }
-//             }
-//             else if (pid < 0)
-//             {
-//                 perror("Error forking process");
-//                 exit(EXIT_FAILURE);
-//             }
-//             else
-//             {
-//                 wait(NULL);
-
-//                 if (in_fd != 0)
-//                     close(in_fd);
-
-//                 if (current_command->next && current_command->next->type == PIPE)
-//                 {
-//                     close(pipefd[1]);  // close write end of the pipe in the parent process
-//                     in_fd = pipefd[0]; // set in_fd to read end of the pipe for the next command
-//                 }
-
-//                 current_command = current_command->next ? current_command->next->next : NULL;
-//             }
-//         }
-//     }
-// }
-
+/**
+ * Executes the command handler.
+ *
+ * This function takes an app object as input and executes the command specified in the app's command list.
+ * It checks the type of the command and performs the corresponding action.
+ * If the command is "cd", it changes the current directory.
+ * If the command is "exit", it exits the program.
+ * If the command is "help", it prints the help message.
+ * If the command is "history", it prints the command history.
+ * For other commands, it forks a child process to handle the command execution.
+ * It handles input/output redirection and piping if necessary.
+ *
+ * @param app The app object containing the command list.
+ */
 void exec_handler(app_t *app)
 {
     Command *current_command = app->app_buffer->command_list[0];

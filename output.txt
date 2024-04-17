@@ -1,0 +1,15 @@
+linenoise.c
+linenoise.h
+linenoise.o
+main
+main.c
+Makefile
+output.txt
+Readme.md
+scripts
+types.c
+types.h
+types.o
+utils.c
+utils.h
+utils.o

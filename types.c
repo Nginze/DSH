@@ -83,6 +83,7 @@ config_t *init_config()
     // Initialize the members of the config object here
     config->promptTheme = false;
     config->promptSym = NULL;
+    config->promptUser = NULL;
     config->tabCompletion = false;
     config->historyFile = NULL;
     config->historySize = 0;
@@ -160,6 +161,10 @@ void load_config(const char *filename, config_t *config)
         else if (strcmp(key, "TAB_COMPLETION") == 0)
         {
             config->tabCompletion = strcmp(value, "true") == 0;
+        }
+        else if (strcmp(key, "PROMPT_USER") == 0)
+        {
+            config->promptUser = strcmp(value, "true") == 0;
         }
         else if (strcmp(key, "PROMPT_SYM") == 0)
         {
