@@ -85,6 +85,12 @@ void tokenize(char *input, Token **args)
                 token_value = start_ptr + 1;
                 end_ptr++;
             }
+            else
+            {
+                // If there's no matching end quote, treat the rest of the string as a single token
+                token_value = start_ptr + 1;
+                end_ptr = start_ptr + strlen(start_ptr);
+            }
         }
         else
         {
@@ -97,7 +103,9 @@ void tokenize(char *input, Token **args)
             }
             else
             {
+                // If there's no more delimiters, treat the rest of the string as a single token
                 token_value = start_ptr;
+                end_ptr = start_ptr + strlen(start_ptr);
             }
         }
 
@@ -117,7 +125,6 @@ void tokenize(char *input, Token **args)
 
     *args = head;
 }
-
 /**
  * Prints the values of each token in a linked list.
  *
